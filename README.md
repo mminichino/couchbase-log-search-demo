@@ -1,0 +1,1 @@
+# couchbase-log-search-demo
