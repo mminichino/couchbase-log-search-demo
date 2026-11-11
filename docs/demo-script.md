@@ -18,7 +18,7 @@ Data is synthetic. Self-signed TLS will show a browser warning — proceed past 
 4. Open two browser tabs:
    - Grafana → folder **Logdemo** → **Executive overview** (time range **Last 15 minutes**, refresh **30s**).
    - Discover → sign in as `admin`.
-5. Optional third tab: Couchbase Web Console (port-forward `make ui` → `:8091`) signed in as **`demo-analyst`**, never Administrator.
+5. Optional third tab: Couchbase Web Console (`make url` → Couchbase UI) signed in as **`demo-analyst`**, never Administrator.
 
 ## Story in one sentence
 

@@ -1,4 +1,4 @@
-{{- if or (and .Values.discover.enabled .Values.discover.host) (and .Values.grafana.enabled .Values.grafana.host) }}
+{{- if or (and .Values.discover.enabled .Values.discover.host) (and .Values.grafana.enabled .Values.grafana.host) (and .Values.couchbaseUi.enabled .Values.couchbaseUi.host) }}
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
@@ -38,6 +38,23 @@ spec:
   secretName: {{ .Values.grafana.tlsSecretName | default "grafana-tls" | quote }}
   dnsNames:
     - {{ .Values.grafana.host | quote }}
+  issuerRef:
+    name: logdemo-selfsigned
+    kind: Issuer
+{{- end }}
+{{- if and .Values.couchbaseUi.enabled .Values.couchbaseUi.host }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: couchbase-ui-tls
+  labels:
+    {{- include "logdemo-apps.labels" . | nindent 4 }}
+    app.kubernetes.io/component: couchbase-ui
+spec:
+  secretName: {{ .Values.couchbaseUi.tlsSecretName | default "couchbase-ui-tls" | quote }}
+  dnsNames:
+    - {{ .Values.couchbaseUi.host | quote }}
   issuerRef:
     name: logdemo-selfsigned
     kind: Issuer

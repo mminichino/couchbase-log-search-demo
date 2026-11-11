@@ -11,7 +11,7 @@ Canonical plan: `docs/implementation-plan.md`. Entry point: `README.md`.
 
 ## Public repo hygiene
 
-This repository is public. Do **not** commit or document live environment data: real Ingress hostnames, DNS zones, LoadBalancer IPs, GCP project IDs, cluster names, `TF_DIR` paths, Secret Manager values, or passwords. Use placeholders (`<discover.host>`, `<grafana.host>`, `make url`) and require operators to set hosts via `.env` (from `.env.example`), chart values, or `DISCOVER_HOST` / `GRAFANA_HOST`. Public third-party URLs (docs.couchbase.com, etc.) are fine.
+This repository is public. Do **not** commit or document live environment data: real Ingress hostnames, DNS zones, LoadBalancer IPs, GCP project IDs, cluster names, `TF_DIR` paths, Secret Manager values, or passwords. Use placeholders (`<discover.host>`, `<grafana.host>`, `<couchbaseUi.host>`, `make url`) and require operators to set hosts via `.env` (from `.env.example`), chart values, or `DISCOVER_HOST` / `GRAFANA_HOST` / `COUCHBASE_UI_HOST`. Public third-party URLs (docs.couchbase.com, etc.) are fine.
 
 ## Ask when unclear
 
@@ -32,8 +32,8 @@ Any material project change (charts, images, secrets, hosts, phases, Makefile, d
 - Images: always `linux/amd64`; Grafana `12.4.15` + plugin `1.2.1`
 - Storage: `dynamic-rwo`
 - Secrets: seven GSM names via `gcsm-store`; never commit values
-- Hosts: set per environment (`discover.host`, `grafana.host`). Prefer Grafana hostname `logdemo-grafana.<domain>` so it cannot collide with bare `grafana.<domain>` monitoring
-- Ingress: **`ingressClassName: haproxy`** + cert-manager Issuer `logdemo-selfsigned` + Certificates → TLS Secrets; DNS A → HAProxy LB IP; `haproxy.org/ssl-redirect-port: "443"`. Do not use GCE ManagedCertificate for these apps.
+- Hosts: set per environment (`discover.host`, `grafana.host`, `couchbaseUi.host`). Prefer `logdemo-grafana.<domain>` and `logdemo-cb.<domain>` so they cannot collide with bare monitoring names
+- Ingress: **`ingressClassName: haproxy`** + cert-manager Issuer `logdemo-selfsigned` + Certificates → TLS Secrets; DNS A → HAProxy LB IP; `haproxy.org/ssl-redirect-port: "443"`. Couchbase UI Ingress → `cb-logdemo-ui:8091` with Service annotation `haproxy.org/cookie-persistence` via CAO `adminConsoleServiceTemplate`. Do not use GCE ManagedCertificate for these apps. Do not enable CAO `exposedFeatures` unless asked.
 
 ## Deploy learnings (do not regress)
 

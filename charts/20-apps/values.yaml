@@ -6,6 +6,17 @@ imageRegistry: us-central1-docker.pkg.dev/couchbase-se/logdemo
 ingress:
   className: haproxy
 
+# Couchbase Web Console (CAO Service cb-logdemo-ui). Cookie stickiness is on that Service.
+couchbaseUi:
+  enabled: true
+  # Public hostname you control. Point DNS at the HAProxy LoadBalancer IP.
+  # Prefer logdemo-cb.<your-domain>. Leave empty until set via values or COUCHBASE_UI_HOST.
+  host: ""
+  tlsSecretName: couchbase-ui-tls
+  serviceName: cb-logdemo-ui
+  servicePort: 8091
+
+
 logstash:
   enabled: true
   image: docker.elastic.co/logstash/logstash:8.15.3

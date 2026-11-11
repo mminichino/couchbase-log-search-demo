@@ -14,8 +14,10 @@ REGION         ?= us-central1
 CLUSTER_NAME   ?=
 REGISTRY       ?= $(REGION)-docker.pkg.dev/$(PROJECT)/logdemo
 # Public Ingress hostnames (optional; also settable in charts/20-apps/values.yaml).
-DISCOVER_HOST  ?=
-GRAFANA_HOST   ?=
+DISCOVER_HOST      ?=
+GRAFANA_HOST       ?=
+COUCHBASE_UI_HOST  ?=
+
 
 
 
@@ -80,7 +82,8 @@ up: lint
 	helm upgrade --install logdemo-apps charts/20-apps \
 		--namespace "$(NAMESPACE)" --wait --timeout "$(HELM_TIMEOUT)" \
 		$(if $(DISCOVER_HOST),--set discover.host=$(DISCOVER_HOST),) \
-		$(if $(GRAFANA_HOST),--set grafana.host=$(GRAFANA_HOST),)
+		$(if $(GRAFANA_HOST),--set grafana.host=$(GRAFANA_HOST),) \
+		$(if $(COUCHBASE_UI_HOST),--set couchbaseUi.host=$(COUCHBASE_UI_HOST),)
 
 down:
 	-helm uninstall logdemo-apps --namespace "$(NAMESPACE)"
@@ -104,16 +107,15 @@ status:
 	-helm list -n "$(NAMESPACE)"
 
 ui:
-	@echo "Port-forwarding Couchbase :8091, generator :8080 (Ctrl-C to stop)"
-	@echo "Discover and Grafana are public HTTPS — use: make url"
-	kubectl -n "$(NAMESPACE)" port-forward svc/cb-logdemo-ui 8091:8091 & \
-	kubectl -n "$(NAMESPACE)" port-forward svc/generator 8080:8080 & \
-	wait
+	@echo "Port-forwarding generator :8080 (Ctrl-C to stop)"
+	@echo "Discover, Grafana, and Couchbase UI are public HTTPS when hosts are set — use: make url"
+	@echo "(Couchbase UI port-forward still available: kubectl -n $(NAMESPACE) port-forward svc/cb-logdemo-ui 8091:8091)"
+	kubectl -n "$(NAMESPACE)" port-forward svc/generator 8080:8080
 
 url:
 	@HAP=$$(kubectl -n haproxy-ingress get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' 2>/dev/null || true); \
 	echo "== HAProxy LoadBalancer =="; \
-	echo "IP: $${HAP:-pending}  (point Discover + Grafana DNS A records here)"; \
+	echo "IP: $${HAP:-pending}  (point Discover + Grafana + Couchbase UI DNS A records here)"; \
 	echo "== Discover =="; \
 	HOST=$$(kubectl -n "$(NAMESPACE)" get ingress discover -o jsonpath='{.spec.rules[0].host}' 2>/dev/null || true); \
 	CLASS=$$(kubectl -n "$(NAMESPACE)" get ingress discover -o jsonpath='{.spec.ingressClassName}' 2>/dev/null || true); \
@@ -129,7 +131,15 @@ url:
 	echo "host: $${GHOST:-unset}"; \
 	echo "ingressClassName: $${GCLASS:-unset}"; \
 	echo "Certificate Ready: $${GCERT:-n/a}"; \
-	if [ -n "$$GHOST" ]; then echo "URL: https://$$GHOST"; fi
+	if [ -n "$$GHOST" ]; then echo "URL: https://$$GHOST"; fi; \
+	echo "== Couchbase UI =="; \
+	CHOST=$$(kubectl -n "$(NAMESPACE)" get ingress couchbase-ui -o jsonpath='{.spec.rules[0].host}' 2>/dev/null || true); \
+	CCLASS=$$(kubectl -n "$(NAMESPACE)" get ingress couchbase-ui -o jsonpath='{.spec.ingressClassName}' 2>/dev/null || true); \
+	CCERT=$$(kubectl -n "$(NAMESPACE)" get certificate couchbase-ui-tls -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true); \
+	echo "host: $${CHOST:-unset}"; \
+	echo "ingressClassName: $${CCLASS:-unset}"; \
+	echo "Certificate Ready: $${CCERT:-n/a}"; \
+	if [ -n "$$CHOST" ]; then echo "URL: https://$$CHOST"; fi
 
 scenario:
 	@test -n "$(name)" || (echo "usage: make scenario name=<scenario>"; exit 1)

@@ -23,7 +23,7 @@ Default Kubernetes namespace: `logdemo` (overridable via `NAMESPACE`).
 Prerequisites: `gcloud`, `kubectl`, `helm`, Docker buildx, Maven (Java 21), Node.js for Discover builds, a GKE cluster from your Terraform config (with cert-manager and HAProxy Ingress available), and Artifact Registry / Secret Manager access.
 
 ```bash
-cp .env.example .env   # set TF_DIR, CLUSTER_NAME, DISCOVER_HOST, GRAFANA_HOST
+cp .env.example .env   # set TF_DIR, CLUSTER_NAME, DISCOVER_HOST, GRAFANA_HOST, COUCHBASE_UI_HOST
 # Cluster already exists? SKIP_TF=1 in .env or on the command line.
 make cluster SKIP_TF=1
 
@@ -37,7 +37,7 @@ make status
 make url
 ```
 
-`.env` is gitignored; keep live hostnames and paths only there (or pass `DISCOVER_HOST` / `GRAFANA_HOST` on the command line). Do not put them in committed files — this repo is public.
+`.env` is gitignored; keep live hostnames and paths only there (or pass `DISCOVER_HOST` / `GRAFANA_HOST` / `COUCHBASE_UI_HOST` on the command line). Do not put them in committed files — this repo is public. Point all three DNS A records at the HAProxy LoadBalancer IP from `make url`.
 
 Sign-in passwords (never committed; read from Secret Manager):
 
@@ -54,7 +54,7 @@ Presenter steps (sign-in, dashboards, inject `payment-outage`, Discover search/t
 make scenario name=payment-outage
 ```
 
-Port-forward Couchbase UI and generator with `make ui`. Discover and Grafana are intended to be public — use `make url` for the addresses on your cluster.
+Port-forward the generator with `make ui`. Discover, Grafana, and the Couchbase Web Console are public HTTPS when their hosts are set — use `make url`. Sign into the console as **`demo-analyst`**, not Administrator.
 
 Teardown releases: `make down`. Full destroy (releases, Ingress, IP release, terraform destroy): `make destroy`.
 

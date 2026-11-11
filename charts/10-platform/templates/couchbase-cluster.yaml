@@ -40,10 +40,18 @@ spec:
       - data
     # Must be NodePort or LoadBalancer (ClusterIP is not a valid enum here).
     adminConsoleServiceType: NodePort
+    # Cookie stickiness for HAProxy Ingress in front of the console (Service-level annotation).
+    adminConsoleServiceTemplate:
+      metadata:
+        annotations:
+          haproxy.org/cookie-persistence: "cb_ui"
+      spec:
+        type: NodePort
     # Skip exposedFeatures: per-pod Services + ClusterIP templates conflict with
     # externalTrafficPolicy=Local. Clients use the headless cb-logdemo-srv Service.
     dns:
       domain: cluster.local
+
   servers:
     - name: all
       size: {{ .Values.couchbase.servers }}

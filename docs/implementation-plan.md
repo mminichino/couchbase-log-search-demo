@@ -10,7 +10,7 @@ The demo runs on GKE, generates logs with a scenario-driven Java simulator, and 
 - **Synthetic logs: simulate a system, not random lines.** A seeded simulator models five services handling user requests. Each request emits a correlated chain of structured JSON events through a real logging stack (SLF4J, Logback, logstash-logback-encoder). Injectable incident scenarios give the dashboards a story, and a backfill mode writes 48 hours of history so charts are full when the demo starts.
 - **Dashboards: Grafana OSS with the Couchbase data source plugin.** Grafana fits live operational views and Explore-style SQL++. The official plugin is community-supported and unsigned, so the image must allow that plugin id. Apache Superset is out of scope: do not add it, its Postgres/Redis footprint, or `couchbase-sqlalchemy` bootstrap jobs.
 - **Ad hoc search: a Next.js Discover page on Couchbase Search.** The cluster runs the Search service with an index on the log message and key fields. A small Next.js app gives the Kibana Discover layout: query bar, time picker, hit histogram, field sidebar and an expandable document table. The Couchbase Web Console and SQL++ `SEARCH()` remain for power users.
-- **Access: Discover and Grafana are public over HTTPS.** Each has an Ingress on the cluster’s **HAProxy** IngressClass, a cert-manager **self-signed** Certificate, and its own hostname. Self-signed is acceptable for this demo (browsers warn). The Discover app keeps its own users (`admin` / `viewer`) in Couchbase. Grafana uses its admin secret from Secret Manager. The Couchbase console and the generator API stay behind `kubectl port-forward` (`make ui`). Do not use GCE `ManagedCertificate` for these apps.
+- **Access: Discover, Grafana, and the Couchbase Web Console are public over HTTPS.** Each has an Ingress on the cluster’s **HAProxy** IngressClass, a cert-manager **self-signed** Certificate, and its own hostname. Self-signed is acceptable for this demo (browsers warn). The Discover app keeps its own users (`admin` / `viewer`) in Couchbase. Grafana uses its admin secret from Secret Manager. The console Ingress targets CAO Service `cb-logdemo-ui` with HAProxy cookie persistence on that Service; presenters sign in as **`demo-analyst`**, never Administrator. The generator API stays behind `kubectl port-forward` (`make ui`). Do not enable CAO `exposedFeatures` / LoadBalancer public networking for SDK clients unless explicitly requested. Do not use GCE `ManagedCertificate` for these apps.
 - **Secrets: Google Secret Manager.** External Secrets Operator syncs them into the cluster through Workload Identity. No secret value is stored in the repo.
 
 One cost to state up front: the Discover page is custom code this repo owns. It covers the Discover features listed in its spec below, plus login and basic user management, and nothing else.
@@ -41,7 +41,7 @@ generator (structured JSON over TCP)
          └─ logs.discover.users|sessions → Discover auth
 ```
 
-The event keeps one shape end to end: the JSON the generator logs is the document Couchbase stores. Inside Couchbase, Query and Analytics feed Grafana; the Search index feeds the Discover page. All of it runs in one GKE namespace (`logdemo`), with credentials synced from Secret Manager. Discover and Grafana are reachable from outside the cluster; everything else is internal or port-forwarded.
+The event keeps one shape end to end: the JSON the generator logs is the document Couchbase stores. Inside Couchbase, Query and Analytics feed Grafana; the Search index feeds the Discover page. All of it runs in one GKE namespace (`logdemo`), with credentials synced from Secret Manager. Discover, Grafana, and the Couchbase console are reachable from outside the cluster; the generator API stays port-forwarded.
 
 ## Synthetic log pattern
 
@@ -249,7 +249,7 @@ The stack is three Helm releases installed in order by a Makefile, all in namesp
 - **Cluster.** GKE Standard in `us-central1`, created by the existing Terraform config pointed at by `TF_DIR`. This repo does not copy or fork it. The config must give: regular release channel, Workload Identity enabled, enough CPU/memory for the table below, and the HTTP load balancing add-on GKE Ingress needs. Override through `infra/gke/logdemo.tfvars` when variables exist. Set `SKIP_TF=1` on `make cluster` when the cluster already exists.
 - **Storage.** Dynamic block storage through `dynamic-rwo` (or the cluster’s Hyperdisk-capable default). Couchbase data 50 Gi, index and search 20 Gi each, analytics 50 Gi. Kafka 20 Gi.
 - **Images.** One Artifact Registry Docker repository, `logdemo`, holds the generator, Kafka Connect, Grafana and Discover images. Always build for **`linux/amd64`** (Apple Silicon hosts default to arm64 and GKE nodes reject those digests).
-- **Access.** Discover at `https://<discover.host>` and Grafana at `https://<grafana.host>` through separate Ingresses with `ingressClassName: haproxy`. Chart values supply the hostnames. **Choose a Grafana hostname that cannot collide with any existing monitoring Grafana** (for example `logdemo-grafana.<domain>`, never a bare `grafana.<domain>` if Prometheus Grafana already owns that DNS name). Both DNS A records must point at the **HAProxy LoadBalancer IP** (shared). cert-manager Issuer `logdemo-selfsigned` issues Secrets `discover-tls` and `grafana-tls`; Ingress `spec.tls` references those Secrets. Annotate Ingresses with `haproxy.org/ssl-redirect: "true"` and `haproxy.org/ssl-redirect-port: "443"`.
+- **Access.** Discover at `https://<discover.host>`, Grafana at `https://<grafana.host>`, and the Couchbase console at `https://<couchbaseUi.host>` through separate Ingresses with `ingressClassName: haproxy`. Chart values (or `DISCOVER_HOST` / `GRAFANA_HOST` / `COUCHBASE_UI_HOST`) supply the hostnames — never commit live values. **Choose Grafana and console hostnames that cannot collide** (for example `logdemo-grafana.<domain>` and `logdemo-cb.<domain>`). All DNS A records must point at the **HAProxy LoadBalancer IP** (shared). cert-manager Issuer `logdemo-selfsigned` issues Secrets `discover-tls`, `grafana-tls`, and `couchbase-ui-tls`; Ingress `spec.tls` references those Secrets. Annotate Ingresses with `haproxy.org/ssl-redirect: "true"` and `haproxy.org/ssl-redirect-port: "443"`. On `cb-logdemo-ui`, set Service annotation `haproxy.org/cookie-persistence` via CAO `adminConsoleServiceTemplate` so console sessions stick.
 
 ```text
 couchbase-log-search-demo/     # one GitHub repo
@@ -284,7 +284,7 @@ couchbase-log-search-demo/     # one GitHub repo
 | --- | --- | --- |
 | `00-operators` | Strimzi. Couchbase Autonomous Operator (admission controller; prefer namespaced watch for `logdemo`). External Secrets Operator if not already cluster-wide. | Operator Deployments Available; CRDs present |
 | `10-platform` | `ExternalSecret` resources against `gcsm-store` (or a chart-managed store). `Kafka` + `KafkaNodePool` (one KRaft combined node). Topics `logs.app.v1` (3 partitions) and `logs.app.dlq`. `KafkaConnect` with the custom image. `CouchbaseCluster` with five services, bucket/scope/collection, users/groups/role bindings. Init Job for GSI, Search, Analytics. | Synced Secrets exist; Kafka Ready; Couchbase Available; init Job Complete |
-| `20-apps` | Logstash Deployment, pipeline ConfigMap, Service on 5000. Generator Deployment and Service on 8080. `KafkaConnector` for the sink. Grafana Deployment/Service with provisioning ConfigMaps. Discover Deployment/Service. cert-manager Issuer + Certificates. HAProxy Ingresses for Discover and Grafana with TLS Secrets and SSL redirect. | Connector RUNNING; document count rising; Certificates Ready; `https://<discover.host>/login` and `https://<grafana.host>` load (self-signed) |
+| `20-apps` | Logstash Deployment, pipeline ConfigMap, Service on 5000. Generator Deployment and Service on 8080. `KafkaConnector` for the sink. Grafana Deployment/Service with provisioning ConfigMaps. Discover Deployment/Service. cert-manager Issuer + Certificates. HAProxy Ingresses for Discover, Grafana, and Couchbase UI (`cb-logdemo-ui:8091`) with TLS Secrets and SSL redirect. | Connector RUNNING; document count rising; Certificates Ready; `https://<discover.host>/login`, `https://<grafana.host>`, and `https://<couchbaseUi.host>` load (self-signed) |
 
 Resource names: Kafka cluster `logdemo` → bootstrap `logdemo-kafka-bootstrap:9092`. Couchbase cluster `cb-logdemo` → seed `cb-logdemo-srv`.
 
@@ -313,8 +313,8 @@ output {
 
 1. Confirm cert-manager and HAProxy Ingress are installed on the cluster (provided by the shared Terraform stack).
 2. Create Issuer `logdemo-selfsigned` (`spec.selfSigned: {}`) and a Certificate per hostname whose `secretName` matches Ingress `spec.tls`.
-3. Create Ingresses with `ingressClassName: haproxy`, TLS hosts/secrets, and SSL-redirect annotations (`haproxy.org/ssl-redirect` + `ssl-redirect-port: "443"` so redirects do not target HAProxy’s internal 8443).
-4. Point Discover and Grafana DNS A records at the HAProxy LoadBalancer IP (`kubectl -n haproxy-ingress get svc`).
+3. Create Ingresses with `ingressClassName: haproxy`, TLS hosts/secrets, and SSL-redirect annotations (`haproxy.org/ssl-redirect` + `ssl-redirect-port: "443"` so redirects do not target HAProxy’s internal 8443). Couchbase UI Ingress backends to `cb-logdemo-ui:8091`; cookie persistence is a Service annotation on that UI Service (`adminConsoleServiceTemplate`).
+4. Point Discover, Grafana, and Couchbase UI DNS A records at the HAProxy LoadBalancer IP (`make url` / `kubectl -n haproxy-ingress get svc`).
 5. Set Grafana `publicScheme: https` so `GF_SERVER_ROOT_URL` matches the public URL.
 6. Prefer `helm upgrade` for Ingress changes.
 
@@ -333,7 +333,7 @@ Memory requests leave room on a three-node `e2-standard-4`-class pool for system
 | Generator | 1 | 0.5 Gi | 0.5 |
 | Discover page | 1 | 0.5–1 Gi | 0.1 |
 
-Makefile targets: `cluster` (optional `terraform apply`, credentials, `infra/gke` scripts), `images`, `up`, `status`, `ui` (Couchbase :8091 and generator :8080), `url` (prints Discover and Grafana hosts, Ingress IPs, reserved addresses, cert status), `scenario name=<scenario>`, `down`, `destroy` (releases first, wait for Ingress/PVCs, release IPs, then `terraform destroy`), `lint`, `test`.
+Makefile targets: `cluster` (optional `terraform apply`, credentials, `infra/gke` scripts), `images`, `up`, `status`, `ui` (generator :8080), `url` (prints Discover, Grafana, and Couchbase UI hosts, HAProxy IP, cert status), `scenario name=<scenario>`, `down`, `destroy` (releases first, wait for Ingress/PVCs, release IPs, then `terraform destroy`), `lint`, `test`.
 
 ### Secrets
 

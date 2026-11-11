@@ -1,0 +1,31 @@
+{{- if and .Values.couchbaseUi.enabled .Values.couchbaseUi.host }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: couchbase-ui
+  labels:
+    {{- include "logdemo-apps.labels" . | nindent 4 }}
+    app.kubernetes.io/component: couchbase-ui
+  annotations:
+    haproxy.org/ssl-redirect: "true"
+    haproxy.org/ssl-redirect-port: "443"
+    # Long-lived console XHRs / Query workbench can exceed the default server timeout.
+    haproxy.org/timeout-server: "5m"
+spec:
+  ingressClassName: {{ .Values.ingress.className | default "haproxy" | quote }}
+  tls:
+    - hosts:
+        - {{ .Values.couchbaseUi.host | quote }}
+      secretName: {{ .Values.couchbaseUi.tlsSecretName | default "couchbase-ui-tls" | quote }}
+  rules:
+    - host: {{ .Values.couchbaseUi.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.couchbaseUi.serviceName | default "cb-logdemo-ui" | quote }}
+                port:
+                  number: {{ .Values.couchbaseUi.servicePort | default 8091 }}
+{{- end }}
