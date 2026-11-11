@@ -6,30 +6,25 @@ Pipeline: Java generator → Logstash (TCP) → Kafka → Couchbase sink → Sea
 
 Full design: [`docs/implementation-plan.md`](docs/implementation-plan.md).
 
-## Status
+## What you get
 
-Running on GKE (`usc1-demo-gke`, namespace `logdemo`).
-
-| Phase | Status |
+| Surface | Role |
 | --- | --- |
-| 1–12 Skeleton → Grafana Explore + public Ingress | done |
-| 13 Dashboards (three Grafana dashboards as code) | done |
-| 14 Demo script | next |
+| Discover | Kibana-like search UI over Couchbase Search (HTTPS Ingress) |
+| Grafana | Explore + provisioned Logdemo dashboards over SQL++ |
+| Generator | Scenario-driven synthetic traffic (`make scenario name=…`) |
 
-| Surface | URL |
-| --- | --- |
-| Discover | https://discover.usc1-demo.gcp.unix.us.com/login |
-| Grafana | https://logdemo-grafana.usc1-demo.gcp.unix.us.com |
+TLS uses **cert-manager self-signed** certificates on the cluster **HAProxy** Ingress (`ingressClassName: haproxy`). Browsers will warn on the certificate. Point Discover and Grafana DNS A records at the HAProxy LoadBalancer IP (`make url` prints the live values for your cluster).
 
-TLS is **cert-manager self-signed** on the cluster **HAProxy** Ingress (`ingressClassName: haproxy`). Browsers will warn on the certificate. Point both DNS A records at the HAProxy LoadBalancer IP (`make url`).
+Default Kubernetes namespace: `logdemo` (overridable via `NAMESPACE`).
 
 ## Quick start
 
-Prerequisites: `gcloud`, `kubectl`, `helm`, Docker buildx, Maven (Java 21), Node.js for Discover builds, access to the existing Terraform config, and the cluster’s cert-manager + HAProxy Ingress (already installed by that Terraform).
+Prerequisites: `gcloud`, `kubectl`, `helm`, Docker buildx, Maven (Java 21), Node.js for Discover builds, a GKE cluster from your Terraform config (with cert-manager and HAProxy Ingress available), and Artifact Registry / Secret Manager access.
 
 ```bash
-# Path to the shared GKE Terraform root (do not fork into this repo)
-export TF_DIR=/Users/michael/IdeaProjects/couchbase-terraform/gcp/us-central1/demo
+# Path to your GKE Terraform root (not part of this repo)
+export TF_DIR=/path/to/couchbase-terraform/gcp/.../demo
 
 # Cluster already exists? Skip terraform apply.
 make cluster SKIP_TF=1
@@ -44,23 +39,22 @@ make status
 make url
 ```
 
-Sign-in:
+Set `discover.host` and `grafana.host` in `charts/20-apps/values.yaml` (or Helm `--set`) to hostnames you control before relying on public Ingress.
+
+Sign-in passwords (never committed; read from Secret Manager):
 
 ```bash
-# Discover admin
 gcloud secrets versions access latest --secret=logdemo-discover-admin-password
-
-# Grafana admin
 gcloud secrets versions access latest --secret=logdemo-grafana-admin-password
 ```
 
-Trigger an incident scenario (from inside the cluster):
+Trigger an incident scenario:
 
 ```bash
 make scenario name=payment-outage
 ```
 
-Port-forward Couchbase UI and generator only (`make ui`). Discover and Grafana are public — use `make url`.
+Port-forward Couchbase UI and generator with `make ui`. Discover and Grafana are intended to be public — use `make url` for the addresses on your cluster.
 
 Teardown releases: `make down`. Full destroy (releases, Ingress, IP release, terraform destroy): `make destroy`.
 
@@ -75,12 +69,12 @@ Teardown releases: `make down`. Full destroy (releases, Ingress, IP release, ter
 | `generator/` | Java 21 Spring Boot simulator (Jib) |
 | `discover/` | Next.js Discover UI |
 | `images/` | `kafka-connect-couchbase`, `grafana-couchbase` |
-| `dashboards/` | Grafana dashboard JSON (phase 13) |
+| `dashboards/` | Grafana dashboard JSON |
 | `docs/` | Implementation plan, search cookbook, Grafana sketches |
 
 ## Secrets
 
-Seven Google Secret Manager names (values never in the repo). Created by `infra/gke/create-secrets.sh`. Synced by External Secrets via ClusterSecretStore `gcsm-store`.
+Seven Google Secret Manager names (values never in the repo). Created by `infra/gke/create-secrets.sh`. Synced by External Secrets via ClusterSecretStore `gcsm-store` (or your chart-configured store).
 
 | Secret Manager | Kubernetes Secret |
 | --- | --- |
