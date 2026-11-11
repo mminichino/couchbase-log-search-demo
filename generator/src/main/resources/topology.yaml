@@ -1,0 +1,161 @@
+regions:
+  - us-east-1
+  - us-west-2
+  - eu-west-1
+
+versions:
+  api-gateway: "1.4.2"
+  auth: "2.1.0"
+  catalog: "3.0.5"
+  orders: "2.8.1"
+  payments: "1.9.3"
+
+services:
+  - name: api-gateway
+    hosts: [gw-01, gw-02, gw-03]
+    endpoints:
+      - method: GET
+        path: /api/health
+        weight: 5
+      - method: POST
+        path: /api/login
+        weight: 15
+      - method: GET
+        path: /api/catalog
+        weight: 30
+      - method: GET
+        path: /api/catalog/{id}
+        weight: 20
+      - method: POST
+        path: /api/orders
+        weight: 20
+      - method: POST
+        path: /api/checkout
+        weight: 10
+
+  - name: auth
+    hosts: [auth-01, auth-02]
+    endpoints:
+      - method: POST
+        path: /auth/login
+        weight: 40
+      - method: GET
+        path: /auth/validate
+        weight: 50
+      - method: POST
+        path: /auth/logout
+        weight: 10
+
+  - name: catalog
+    hosts: [cat-01, cat-02, cat-03]
+    endpoints:
+      - method: GET
+        path: /catalog/items
+        weight: 50
+      - method: GET
+        path: /catalog/items/{id}
+        weight: 40
+      - method: GET
+        path: /catalog/search
+        weight: 10
+
+  - name: orders
+    hosts: [ord-01, ord-02]
+    endpoints:
+      - method: POST
+        path: /orders
+        weight: 40
+      - method: GET
+        path: /orders/{id}
+        weight: 35
+      - method: POST
+        path: /orders/{id}/retry
+        weight: 10
+      - method: GET
+        path: /orders
+        weight: 15
+
+  - name: payments
+    hosts: [pay-01, pay-02]
+    endpoints:
+      - method: POST
+        path: /payments/charge
+        weight: 70
+      - method: POST
+        path: /payments/refund
+        weight: 15
+      - method: GET
+        path: /payments/{id}
+        weight: 15
+
+flows:
+  - name: login
+    weight: 20
+    hops:
+      - service: api-gateway
+        method: POST
+        path: /api/login
+      - service: auth
+        method: POST
+        path: /auth/login
+
+  - name: browse-catalog
+    weight: 35
+    hops:
+      - service: api-gateway
+        method: GET
+        path: /api/catalog
+      - service: auth
+        method: GET
+        path: /auth/validate
+      - service: catalog
+        method: GET
+        path: /catalog/items
+
+  - name: item-detail
+    weight: 20
+    hops:
+      - service: api-gateway
+        method: GET
+        path: /api/catalog/{id}
+      - service: auth
+        method: GET
+        path: /auth/validate
+      - service: catalog
+        method: GET
+        path: /catalog/items/{id}
+
+  - name: place-order
+    weight: 15
+    hops:
+      - service: api-gateway
+        method: POST
+        path: /api/orders
+      - service: auth
+        method: GET
+        path: /auth/validate
+      - service: catalog
+        method: GET
+        path: /catalog/items/{id}
+      - service: orders
+        method: POST
+        path: /orders
+
+  - name: checkout
+    weight: 10
+    hops:
+      - service: api-gateway
+        method: POST
+        path: /api/checkout
+      - service: auth
+        method: GET
+        path: /auth/validate
+      - service: catalog
+        method: GET
+        path: /catalog/items/{id}
+      - service: orders
+        method: POST
+        path: /orders
+      - service: payments
+        method: POST
+        path: /payments/charge

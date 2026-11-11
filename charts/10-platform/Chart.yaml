@@ -1,0 +1,6 @@
+apiVersion: v2
+name: logdemo-platform
+description: Platform resources for the Couchbase log analytics demo (secrets, Kafka, Couchbase, init)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

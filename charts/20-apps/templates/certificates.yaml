@@ -1,0 +1,44 @@
+{{- if or (and .Values.discover.enabled .Values.discover.host) (and .Values.grafana.enabled .Values.grafana.host) }}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: logdemo-selfsigned
+  labels:
+    {{- include "logdemo-apps.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+{{- end }}
+{{- if and .Values.discover.enabled .Values.discover.host }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: discover-tls
+  labels:
+    {{- include "logdemo-apps.labels" . | nindent 4 }}
+    app.kubernetes.io/component: discover
+spec:
+  secretName: {{ .Values.discover.tlsSecretName | default "discover-tls" | quote }}
+  dnsNames:
+    - {{ .Values.discover.host | quote }}
+  issuerRef:
+    name: logdemo-selfsigned
+    kind: Issuer
+{{- end }}
+{{- if and .Values.grafana.enabled .Values.grafana.host }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: grafana-tls
+  labels:
+    {{- include "logdemo-apps.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+spec:
+  secretName: {{ .Values.grafana.tlsSecretName | default "grafana-tls" | quote }}
+  dnsNames:
+    - {{ .Values.grafana.host | quote }}
+  issuerRef:
+    name: logdemo-selfsigned
+    kind: Issuer
+{{- end }}

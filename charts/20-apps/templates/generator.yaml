@@ -1,0 +1,81 @@
+{{- if .Values.generator.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: generator
+  labels:
+    {{- include "logdemo-apps.labels" . | nindent 4 }}
+    app.kubernetes.io/component: generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: generator
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "logdemo-apps.labels" . | nindent 8 }}
+        app.kubernetes.io/component: generator
+    spec:
+      containers:
+        - name: generator
+          image: {{ printf "%s/%s" .Values.imageRegistry .Values.generator.image | quote }}
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: {{ .Values.generator.port }}
+          env:
+            - name: GENERATOR_SEED
+              value: {{ .Values.generator.seed | quote }}
+            - name: GENERATOR_MODE
+              value: {{ .Values.generator.mode | quote }}
+            - name: GENERATOR_ENV
+              value: {{ .Values.generator.env | default "demo" | quote }}
+            - name: GENERATOR_BACKFILL_HOURS
+              value: {{ .Values.generator.backfillHours | quote }}
+            - name: GENERATOR_BACKFILL_AVG_EPS
+              value: {{ .Values.generator.backfillAvgEps | default 5 | quote }}
+            - name: GENERATOR_BACKFILL_MAX_SEND_EPS
+              value: {{ .Values.generator.backfillMaxSendEps | default 2000 | quote }}
+            - name: GENERATOR_LIVE_EPS
+              value: {{ .Values.generator.liveEps | quote }}
+            - name: GENERATOR_LOGSTASH_HOST
+              value: {{ .Values.generator.logstashHost | default "logstash" | quote }}
+            - name: GENERATOR_LOGSTASH_PORT
+              value: {{ .Values.generator.logstashPort | default 5000 | quote }}
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.generator.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: generator
+  labels:
+    {{- include "logdemo-apps.labels" . | nindent 4 }}
+    app.kubernetes.io/component: generator
+spec:
+  selector:
+    app.kubernetes.io/component: generator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: {{ .Values.generator.port }}
+      targetPort: http
+{{- end }}

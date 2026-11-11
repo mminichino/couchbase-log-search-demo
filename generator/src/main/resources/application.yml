@@ -1,0 +1,38 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: generator
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,info,metrics
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: generator
+
+generator:
+  seed: 42
+  mode: backfill-then-live
+  env: demo
+  topology: classpath:topology.yaml
+  backfill:
+    hours: 48
+    avg-eps: 5
+    max-send-eps: 2000
+  live:
+    eps: 20
+  logstash:
+    host: logstash
+    port: 5000
+
+logging:
+  level:
+    root: INFO
+    com.couchbase.logdemo.generator: INFO

@@ -1,0 +1,29 @@
+{{- if and .Values.grafana.enabled .Values.grafana.host }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana
+  labels:
+    {{- include "logdemo-apps.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+  annotations:
+    haproxy.org/ssl-redirect: "true"
+    haproxy.org/ssl-redirect-port: "443"
+spec:
+  ingressClassName: {{ .Values.ingress.className | default "haproxy" | quote }}
+  tls:
+    - hosts:
+        - {{ .Values.grafana.host | quote }}
+      secretName: {{ .Values.grafana.tlsSecretName | default "grafana-tls" | quote }}
+  rules:
+    - host: {{ .Values.grafana.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: {{ .Values.grafana.port | default 3000 }}
+{{- end }}

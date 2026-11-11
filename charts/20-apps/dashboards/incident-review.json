@@ -1,0 +1,192 @@
+{
+  "uid": "logdemo-incident",
+  "title": "Incident review",
+  "description": "Exceptions, versions, top IPs, latest errors. Prefer last 15m\u20131h.",
+  "tags": [
+    "logdemo",
+    "incident"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 3,
+  "refresh": "30s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Errors by exception class",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "couchbase"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "couchbase"
+          },
+          "query": "SELECT MILLIS_TO_STR(MAX(ts_ms)) AS `time`, exception_class, COUNT(*) AS errors\nFROM logs.app.events\nWHERE time_range(ts_ms) AND `level` = \"ERROR\" AND exception_class IS NOT MISSING\nGROUP BY exception_class ORDER BY COUNT(*) DESC LIMIT 15"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Errors by version",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "couchbase"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "couchbase"
+          },
+          "query": "SELECT MILLIS_TO_STR(MAX(ts_ms)) AS `time`, version, COUNT(*) AS errors\nFROM logs.app.events\nWHERE time_range(ts_ms) AND `level` = \"ERROR\"\nGROUP BY version ORDER BY COUNT(*) DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Top client IPs",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "couchbase"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "couchbase"
+          },
+          "query": "SELECT MILLIS_TO_STR(MAX(ts_ms)) AS `time`, client_ip, COUNT(*) AS events\nFROM logs.app.events\nWHERE time_range(ts_ms) AND client_ip IS NOT MISSING\nGROUP BY client_ip ORDER BY COUNT(*) DESC LIMIT 20"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Latest errors",
+      "gridPos": {
+        "h": 16,
+        "w": 16,
+        "x": 8,
+        "y": 8
+      },
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "couchbase"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "couchbase"
+          },
+          "query": "SELECT MILLIS_TO_STR(ts_ms) AS `time`, service, exception_class, message, trace_id, version, client_ip\nFROM logs.app.events\nWHERE time_range(ts_ms) AND `level` = \"ERROR\"\nLIMIT 100"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "ERROR events per minute",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 16
+      },
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "couchbase"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "couchbase"
+          },
+          "query": "SELECT MILLIS_TO_STR(FLOOR(ts_ms / 60000) * 60000) AS `time`,\n       service,\n       COUNT(*) AS errors\nFROM logs.app.events\nWHERE time_range(ts_ms) AND `level` = \"ERROR\"\nGROUP BY FLOOR(ts_ms / 60000) * 60000, service"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    }
+  ]
+}

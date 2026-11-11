@@ -1,0 +1,85 @@
+{{- if .Values.couchbase.enabled }}
+apiVersion: couchbase.com/v2
+kind: CouchbaseBucket
+metadata:
+  name: {{ .Values.couchbase.bucket }}
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/bucket: "true"
+spec:
+  name: {{ .Values.couchbase.bucket }}
+  memoryQuota: {{ .Values.couchbase.quotas.dataMb }}Mi
+  replicas: 0
+  storageBackend: magma
+  evictionPolicy: fullEviction
+  compressionMode: passive
+  scopes:
+    managed: true
+    selector:
+      matchLabels:
+        app.kubernetes.io/part-of: logdemo
+        logdemo.couchbase.com/scope: "true"
+---
+apiVersion: couchbase.com/v2
+kind: CouchbaseScope
+metadata:
+  name: logs-app
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/scope: "true"
+spec:
+  name: {{ .Values.couchbase.scope }}
+  collections:
+    managed: true
+    selector:
+      matchLabels:
+        app.kubernetes.io/part-of: logdemo
+        logdemo.couchbase.com/collection: events
+---
+apiVersion: couchbase.com/v2
+kind: CouchbaseCollection
+metadata:
+  name: logs-app-events
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/collection: events
+spec:
+  name: {{ .Values.couchbase.collection }}
+  maxTTL: {{ .Values.couchbase.eventsMaxTTL | quote }}
+---
+apiVersion: couchbase.com/v2
+kind: CouchbaseScope
+metadata:
+  name: logs-discover
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/scope: "true"
+spec:
+  name: {{ .Values.couchbase.discoverScope }}
+  collections:
+    managed: true
+    selector:
+      matchLabels:
+        app.kubernetes.io/part-of: logdemo
+        logdemo.couchbase.com/collection: discover
+---
+apiVersion: couchbase.com/v2
+kind: CouchbaseCollection
+metadata:
+  name: logs-discover-users
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/collection: discover
+spec:
+  name: users
+---
+apiVersion: couchbase.com/v2
+kind: CouchbaseCollection
+metadata:
+  name: logs-discover-sessions
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/collection: discover
+spec:
+  name: sessions
+{{- end }}

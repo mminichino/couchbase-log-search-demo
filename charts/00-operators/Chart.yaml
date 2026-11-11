@@ -1,0 +1,15 @@
+apiVersion: v2
+name: logdemo-operators
+description: Operators for the Couchbase log analytics demo (Strimzi, Couchbase CAO, External Secrets)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: strimzi-kafka-operator
+    version: "1.3.1"
+    repository: "oci://quay.io/strimzi-helm"
+    condition: strimzi.enabled
+    alias: strimzi
+# Couchbase CAO 2.9.2 (chart couchbase-operator-2.92.0) and External Secrets
+# 1.2.1 are already installed by couchbase-terraform. Leave their flags false
+# unless installing onto a bare cluster.

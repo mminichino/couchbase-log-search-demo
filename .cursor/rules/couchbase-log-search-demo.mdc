@@ -1,0 +1,43 @@
+---
+description: Couchbase log-search demo — stack, deploy learnings, docs discipline
+alwaysApply: true
+---
+
+# Couchbase log-search demo
+
+GKE demo in namespace `logdemo`: generator → Logstash → Kafka → Couchbase → **Discover** (Search) + **Grafana** (SQL++). Superset was removed; do not reintroduce it unless the user explicitly asks.
+
+Canonical plan: `docs/implementation-plan.md`. Entry point: `README.md`.
+
+## Ask when unclear
+
+Stop and ask before changing: public hostnames/DNS, TLS/Ingress class, secret names, `TF_DIR` / terraform destroy, Couchbase EE topology/quotas, replacing Grafana or Discover, or phase acceptance criteria. Prefer a short clarifying question over guessing.
+
+## Always update docs and rules
+
+Any material project change (charts, images, secrets, hosts, phases, Makefile, deploy procedure) must update in the **same** change:
+
+1. `docs/implementation-plan.md` (desired end state)
+2. `README.md` when user-facing setup/URLs/secrets/status change
+3. This rule file when conventions or deploy learnings change
+4. Focused docs (`docs/grafana-query-sketches.md`, `docs/search-cookbook.md`, `docs/demo-script.md`) when those surfaces change
+
+## Stack pins
+
+- Charts: `00-operators` → `10-platform` → `20-apps`; Kafka `logdemo`; Couchbase `cb-logdemo` / `cb-logdemo-srv`
+- Images: always `linux/amd64`; Grafana `12.4.15` + plugin `1.2.1`
+- Storage: `dynamic-rwo`
+- Secrets: seven GSM names via `gcsm-store`; never commit values
+- Hosts: Discover `discover.usc1-demo.gcp.unix.us.com`; Grafana **`logdemo-grafana.…`** (not bare `grafana.…`)
+- Ingress: **`ingressClassName: haproxy`** + cert-manager Issuer `logdemo-selfsigned` + Certificates → TLS Secrets; DNS A → HAProxy LB IP; `haproxy.org/ssl-redirect-port: "443"`. Do not use GCE ManagedCertificate for these apps.
+
+## Deploy learnings (do not regress)
+
+- Connect: `${strimzienv:CB_*}`; memory ≥ 2Gi; amd64 image
+- Logstash: rename `message` → `[@metadata][raw]` before `json` filter
+- Grafana plugin: `time_range()`; `TO_STRING(ts_ms)`; quote `` `level` ``; `grafana-ro` needs `query_use_sequential_scans`; GSI **`idx_events_ts_ms_num` on `TO_NUMBER(ts_ms)`** is required. On MOI do **not** also create large `idx_events_trace`/`idx_events_time` — they pause the indexer; Grafana queries then hang.
+- Prefer `helm upgrade` over force-replacing Ingress objects
+
+## Phases
+
+1–13 done (Grafana dashboards in folder Logdemo). Next: **14** `docs/demo-script.md`.

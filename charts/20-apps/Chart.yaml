@@ -1,0 +1,6 @@
+apiVersion: v2
+name: logdemo-apps
+description: Application layer for the Couchbase log analytics demo (Logstash, generator, Connect sink, Grafana, Discover)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

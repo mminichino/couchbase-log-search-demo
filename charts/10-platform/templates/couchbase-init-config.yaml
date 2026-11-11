@@ -1,0 +1,232 @@
+{{- if and .Values.couchbase.enabled .Values.couchbase.init.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cb-logdemo-init
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+data:
+  events_fts.json: |
+    {
+      "name": "events_fts",
+      "type": "fulltext-index",
+      "sourceType": "gocbcore",
+      "sourceName": "{{ .Values.couchbase.bucket }}",
+      "planParams": {
+        "indexPartitions": 1,
+        "numReplicas": 0
+      },
+      "params": {
+        "doc_config": {
+          "mode": "scope.collection.type_field",
+          "type_field": "type"
+        },
+        "mapping": {
+          "default_mapping": {
+            "enabled": false
+          },
+          "types": {
+            "{{ .Values.couchbase.scope }}.{{ .Values.couchbase.collection }}": {
+              "enabled": true,
+              "dynamic": false,
+              "properties": {
+                "message": {
+                  "enabled": true,
+                  "fields": [
+                    {
+                      "name": "message",
+                      "type": "text",
+                      "analyzer": "standard",
+                      "store": true,
+                      "index": true,
+                      "include_term_vectors": true,
+                      "include_in_all": true
+                    }
+                  ]
+                },
+                "ts": {
+                  "enabled": true,
+                  "fields": [
+                    { "name": "ts", "type": "datetime", "store": false, "index": true, "docvalues": true }
+                  ]
+                },
+                "http_status": {
+                  "enabled": true,
+                  "fields": [
+                    { "name": "http_status", "type": "number", "store": false, "index": true, "docvalues": true }
+                  ]
+                },
+                "duration_ms": {
+                  "enabled": true,
+                  "fields": [
+                    { "name": "duration_ms", "type": "number", "store": false, "index": true, "docvalues": true }
+                  ]
+                },
+                "service": {
+                  "enabled": true,
+                  "fields": [
+                    { "name": "service", "type": "text", "analyzer": "keyword", "store": false, "index": true, "docvalues": true }
+                  ]
+                },
+                "level": {
+                  "enabled": true,
+                  "fields": [
+                    { "name": "level", "type": "text", "analyzer": "keyword", "store": false, "index": true, "docvalues": true }
+                  ]
+                },
+                "region": {
+                  "enabled": true,
+                  "fields": [
+                    { "name": "region", "type": "text", "analyzer": "keyword", "store": false, "index": true, "docvalues": true }
+                  ]
+                },
+                "host": {
+                  "enabled": true,
+                  "fields": [
+                    { "name": "host", "type": "text", "analyzer": "keyword", "store": false, "index": true, "docvalues": true }
+                  ]
+                },
+                "version": {
+                  "enabled": true,
+                  "fields": [
+                    { "name": "version", "type": "text", "analyzer": "keyword", "store": false, "index": true, "docvalues": true }
+                  ]
+                },
+                "scenario": {
+                  "enabled": true,
+                  "fields": [
+                    { "name": "scenario", "type": "text", "analyzer": "keyword", "store": false, "index": true, "docvalues": true }
+                  ]
+                },
+                "client_ip": {
+                  "enabled": true,
+                  "fields": [
+                    { "name": "client_ip", "type": "text", "analyzer": "keyword", "store": false, "index": true, "docvalues": true }
+                  ]
+                },
+                "http_path": {
+                  "enabled": true,
+                  "fields": [
+                    { "name": "http_path", "type": "text", "analyzer": "keyword", "store": false, "index": true, "docvalues": true }
+                  ]
+                },
+                "trace_id": {
+                  "enabled": true,
+                  "fields": [
+                    { "name": "trace_id", "type": "text", "analyzer": "keyword", "store": false, "index": true, "docvalues": true }
+                  ]
+                },
+                "exception_class": {
+                  "enabled": true,
+                  "fields": [
+                    { "name": "exception_class", "type": "text", "analyzer": "keyword", "store": false, "index": true, "docvalues": true }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "store": {
+          "indexType": "scorch"
+        }
+      }
+    }
+  init.sh: |
+    #!/bin/sh
+    # BusyBox/POSIX sh (curlimages/curl has no bash).
+    set -eu
+    # Use the headless cluster Service (all mgmt ports). <name>-srv is KV-only.
+    CB_HOST="${CB_HOST:-cb-logdemo}"
+    USERNAME=$(cat /secrets/admin/username)
+    PASSWORD=$(cat /secrets/admin/password)
+    CURL_AUTH="${USERNAME}:${PASSWORD}"
+
+    wait_http() {
+      url=$1
+      n=0
+      while [ "$n" -lt 120 ]; do
+        if curl -sf -u "${CURL_AUTH}" "${url}" >/dev/null 2>&1; then
+          return 0
+        fi
+        n=$((n + 1))
+        sleep 5
+      done
+      echo "timeout waiting for ${url}" >&2
+      return 1
+    }
+
+    json_stmt() {
+      s=$1
+      s=$(printf '%s' "$s" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
+      printf '{"statement":"%s"}' "$s"
+    }
+
+    n1ql() {
+      stmt=$1
+      echo "N1QL: ${stmt}"
+      curl -sf -u "${CURL_AUTH}" \
+        -H 'Content-Type: application/json' \
+        "http://${CB_HOST}:8093/query/service" \
+        -d "$(json_stmt "${stmt}")"
+      echo
+    }
+
+    analytics() {
+      stmt=$1
+      echo "Analytics: ${stmt}"
+      curl -sf -u "${CURL_AUTH}" \
+        -H 'Content-Type: application/json' \
+        "http://${CB_HOST}:8095/analytics/service" \
+        -d "$(json_stmt "${stmt}")" || true
+      echo
+    }
+
+    echo "Waiting for query service on ${CB_HOST}:8093..."
+    wait_http "http://${CB_HOST}:8093/admin/ping"
+
+    # Grafana plugin rewrites time_range(ts_ms) → TO_NUMBER(ts_ms) > … . On MOI, keep this
+    # as the only events GSI: extra indexes (trace/time) push indexer into Paused under demo volume.
+    n1ql "CREATE INDEX idx_events_ts_ms_num IF NOT EXISTS ON \`logs\`.\`app\`.\`events\`(TO_NUMBER(ts_ms), \`level\`, service, region)" || true
+    n1ql "CREATE PRIMARY INDEX idx_discover_users IF NOT EXISTS ON \`logs\`.\`discover\`.\`users\`" || true
+
+
+    echo "Waiting for search service on ${CB_HOST}:8094..."
+    wait_http "http://${CB_HOST}:8094/api/cfg"
+
+    INDEX_JSON=/config/events_fts.json
+    if curl -sf -u "${CURL_AUTH}" "http://${CB_HOST}:8094/api/bucket/logs/scope/app/index/events_fts" >/dev/null 2>&1; then
+      echo "Search index events_fts already exists"
+    else
+      echo "Creating scoped Search index events_fts"
+      # Keyword facets use type=text + analyzer=keyword (type=keyword is rejected by FTS).
+      code=$(curl -s -o /tmp/fts-out -w '%{http_code}' -u "${CURL_AUTH}" \
+        -H 'Content-Type: application/json' \
+        -X PUT "http://${CB_HOST}:8094/api/bucket/logs/scope/app/index/events_fts" \
+        -d @"${INDEX_JSON}")
+      cat /tmp/fts-out; echo
+      case "${code}" in
+        200|201) ;;
+        *) echo "FTS create failed HTTP ${code}" >&2; exit 1 ;;
+      esac
+    fi
+
+    echo "Waiting for analytics service on ${CB_HOST}:8095..."
+    n=0
+    while [ "$n" -lt 120 ]; do
+      if curl -sf -u "${CURL_AUTH}" "http://${CB_HOST}:8095/analytics/service" \
+        -H 'Content-Type: application/json' \
+        -d '{"statement":"SELECT 1"}' >/dev/null 2>&1; then
+        break
+      fi
+      n=$((n + 1))
+      sleep 5
+    done
+
+    analytics "ALTER COLLECTION logs.app.events ENABLE ANALYTICS;"
+    analytics "CREATE OR REPLACE ANALYTICS VIEW logs.app.events_v ( event_id STRING, ts DATETIME, level STRING, service STRING, version STRING, env STRING, host STRING, region STRING, logger STRING, message STRING, trace_id STRING, http_method STRING, http_path STRING, http_status BIGINT, duration_ms BIGINT, user_id STRING, client_ip STRING, exception_class STRING, scenario STRING ) DEFAULT NULL PRIMARY KEY (event_id) NOT ENFORCED AS SELECT e.event_id, datetime(e.ts) AS ts, e.level, e.service, e.version, e.env, e.host, e.region, e.logger, e.message, e.trace_id, e.http_method, e.http_path, e.http_status, e.duration_ms, e.user_id, e.client_ip, e.exception_class, e.scenario FROM logs.app.events e;"
+
+    echo "Verifying empty collection count"
+    n1ql "SELECT COUNT(*) AS c FROM \`logs\`.\`app\`.\`events\`"
+
+    echo "Init complete"
+{{- end }}

@@ -1,0 +1,97 @@
+namespace: logdemo
+
+imageRegistry: us-central1-docker.pkg.dev/couchbase-se/logdemo
+
+# Shared Ingress: cluster HAProxy + cert-manager self-signed TLS (not GCE ManagedCertificate).
+ingress:
+  className: haproxy
+
+logstash:
+  enabled: true
+  image: docker.elastic.co/logstash/logstash:8.15.3
+  port: 5000
+  kafkaBootstrap: logdemo-kafka-bootstrap:9092
+  topic: logs.app.v1
+  javaOpts: "-Xms512m -Xmx512m"
+  resources:
+    requests:
+      cpu: "500m"
+      memory: 1.5Gi
+    limits:
+      memory: 1.5Gi
+
+generator:
+  enabled: true
+  image: generator:0.1.0
+  port: 8080
+  seed: 42
+  mode: backfill-then-live
+  env: demo
+  backfillHours: 48
+  backfillAvgEps: 5
+  backfillMaxSendEps: 2000
+  liveEps: 20
+  logstashHost: logstash
+  logstashPort: 5000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 512Mi
+
+connector:
+  enabled: true
+  name: couchbase-sink
+  connectCluster: logdemo-connect
+  tasksMax: 2
+  topics: logs.app.v1
+  dlqTopic: logs.app.dlq
+  dlqReplication: 1
+  couchbaseSeed: cb-logdemo-srv
+  bucket: logs
+  collection: app.events
+  documentExpiration: 7d
+
+grafana:
+  enabled: true
+  image: grafana-couchbase:12.4.15-cb1.2.1
+  port: 3000
+  # Public hostname. Point DNS at the HAProxy LoadBalancer IP (shared with Discover).
+  # Distinct from monitoring/prometheus-grafana at grafana.usc1-demo.gcp.unix.us.com
+  host: logdemo-grafana.usc1-demo.gcp.unix.us.com
+  tlsSecretName: grafana-tls
+  publicScheme: https
+  adminUser: admin
+  adminPasswordSecret: grafana-admin
+  couchbaseHost: couchbase://cb-logdemo-srv
+  couchbaseUsername: grafana-ro
+  couchbasePasswordSecret: cb-user-grafana-ro
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 512Mi
+
+discover:
+  enabled: true
+  image: discover:0.1.0
+  port: 3000
+  # Public hostname. Point DNS at the HAProxy LoadBalancer IP (shared with Grafana).
+  host: discover.usc1-demo.gcp.unix.us.com
+  tlsSecretName: discover-tls
+  cbConnStr: couchbase://cb-logdemo-srv.logdemo.svc.cluster.local
+  cbUsername: discover-app
+  cbPasswordSecret: cb-user-discover-app
+  cbBucket: logs
+  cbScope: app
+  cbCollection: events
+  cbSearchIndex: events_fts
+  adminPasswordSecret: discover-admin
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 1Gi

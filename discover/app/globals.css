@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --panel-bg: rgba(255, 255, 255, 0.92);
+  /* Local stacks — avoid next/font/google so Docker builds need no font CDN. */
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-body: "Avenir Next", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: #242f3b;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(15, 122, 108, 0.12), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(36, 47, 59, 0.08), transparent 50%),
+    linear-gradient(180deg, #eef3f6 0%, #e7edf2 45%, #dde6ed 100%);
+  background-attachment: fixed;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: rgba(15, 122, 108, 0.22);
+}

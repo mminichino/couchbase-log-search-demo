@@ -1,0 +1,10 @@
+logdemo-operators
+
+Strimzi {{ .Values.versions.strimzi }}: enabled={{ .Values.strimzi.enabled }}
+Couchbase Operator {{ .Values.versions.couchbaseOperatorApp }}: chart-install={{ .Values.couchbaseOperator.enabled }}
+External Secrets {{ .Values.versions.externalSecretsChart }}: chart-install={{ .Values.externalSecrets.enabled }}
+
+On this GKE stack, CAO and External Secrets come from Terraform.
+Verify:
+  kubectl get crd | grep -E 'kafka.strimzi.io|couchbase.com|external-secrets.io'
+  kubectl -n {{ .Release.Namespace }} get deploy -l app.kubernetes.io/name=strimzi-cluster-operator

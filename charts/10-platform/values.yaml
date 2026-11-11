@@ -1,0 +1,99 @@
+namespace: logdemo
+
+kafka:
+  enabled: true
+  clusterName: logdemo
+  nodePoolName: dual
+  replicas: 1
+  version: "4.3.2"
+  metadataVersion: "4.3-IV0"
+  topic: logs.app.v1
+  dlqTopic: logs.app.dlq
+  partitions: 3
+  storageGi: 20
+  # N4 nodes require Hyperdisk; dynamic-rwo selects hyperdisk-balanced.
+  storageClass: dynamic-rwo
+  resources:
+    requests:
+      cpu: "500m"
+      memory: 1.5Gi
+    limits:
+      memory: 1.5Gi
+
+connect:
+  enabled: true
+  name: logdemo-connect
+  replicas: 1
+  image: us-central1-docker.pkg.dev/couchbase-se/logdemo/kafka-connect-couchbase:4.3.7
+  couchbaseUsername: kafka-sink
+  couchbasePasswordSecret: cb-user-kafka-sink
+  resources:
+    requests:
+      cpu: "500m"
+      memory: 2Gi
+    limits:
+      memory: 2Gi
+
+couchbase:
+  enabled: true
+  clusterName: cb-logdemo
+  image: couchbase/server:enterprise-8.0.3
+  adminSecret: cb-logdemo-auth
+  servers: 1
+  bucket: logs
+  scope: app
+  collection: events
+  discoverScope: discover
+  eventsMaxTTL: "168h" # 7 days
+  storageClass: dynamic-rwo
+  dataStorageGi: 50
+  indexStorageGi: 20
+  searchStorageGi: 20
+  analyticsStorageGi: 50
+  # Index storage is MOI on this live cluster (cannot switch to plasma without rebuild).
+  # Keep index quota high enough that GSI does not stay Paused under demo volume.
+  indexStorageSetting: memory_optimized
+  quotas:
+    dataMb: 1024
+    indexMb: 3072
+    searchMb: 1024
+    analyticsMb: 1024
+  resources:
+    requests:
+      cpu: "2"
+      memory: 8Gi
+    limits:
+      memory: 8Gi
+  init:
+    enabled: true
+    # rev 4: only idx_events_ts_ms_num on events (MOI cannot hold multiple large GSIs)
+    revision: "4"
+    image: curlimages/curl:8.11.1
+
+secretStore:
+  enabled: true
+  # Use the validated ClusterSecretStore from Terraform (gke-sa already has access).
+  kind: ClusterSecretStore
+  name: logdemo-gsm
+  clusterStoreName: gcsm-store
+  projectID: couchbase-se
+  serviceAccountName: logdemo-eso
+
+secrets:
+  - name: cb-logdemo-auth
+    remoteKey: logdemo-cb-admin-password
+    template:
+      username: Administrator
+      password: "{{ .password }}"
+  - name: cb-user-kafka-sink
+    remoteKey: logdemo-cb-sink-password
+  - name: cb-user-grafana-ro
+    remoteKey: logdemo-cb-grafana-password
+  - name: cb-user-demo-analyst
+    remoteKey: logdemo-cb-analyst-password
+  - name: cb-user-discover-app
+    remoteKey: logdemo-cb-discover-password
+  - name: discover-admin
+    remoteKey: logdemo-discover-admin-password
+  - name: grafana-admin
+    remoteKey: logdemo-grafana-admin-password

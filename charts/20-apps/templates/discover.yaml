@@ -1,0 +1,90 @@
+{{- if .Values.discover.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discover
+  labels:
+    {{- include "logdemo-apps.labels" . | nindent 4 }}
+    app.kubernetes.io/component: discover
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: discover
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "logdemo-apps.labels" . | nindent 8 }}
+        app.kubernetes.io/component: discover
+    spec:
+      containers:
+        - name: discover
+          image: {{ printf "%s/%s" .Values.imageRegistry .Values.discover.image | quote }}
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: {{ .Values.discover.port }}
+          env:
+            - name: CB_CONNSTR
+              value: {{ .Values.discover.cbConnStr | default "couchbase://cb-logdemo-srv" | quote }}
+            - name: CB_USERNAME
+              value: {{ .Values.discover.cbUsername | default "discover-app" | quote }}
+            - name: CB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.discover.cbPasswordSecret | default "cb-user-discover-app" }}
+                  key: password
+            - name: CB_BUCKET
+              value: {{ .Values.discover.cbBucket | default "logs" | quote }}
+            - name: CB_SCOPE
+              value: {{ .Values.discover.cbScope | default "app" | quote }}
+            - name: CB_COLLECTION
+              value: {{ .Values.discover.cbCollection | default "events" | quote }}
+            - name: CB_SEARCH_INDEX
+              value: {{ .Values.discover.cbSearchIndex | default "events_fts" | quote }}
+            - name: DISCOVER_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.discover.adminPasswordSecret | default "discover-admin" }}
+                  key: password
+            {{- if .Values.discover.host }}
+            - name: DISCOVER_COOKIE_SECURE
+              value: "true"
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.discover.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: discover
+  labels:
+    {{- include "logdemo-apps.labels" . | nindent 4 }}
+    app.kubernetes.io/component: discover
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/component: discover
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: {{ .Values.discover.port }}
+      targetPort: http
+{{- end }}

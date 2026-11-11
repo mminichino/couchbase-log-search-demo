@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <springProperty name="logstashHost" source="generator.logstash.host" defaultValue="logstash"/>
+  <springProperty name="logstashPort" source="generator.logstash.port" defaultValue="5000"/>
+
+  <!-- Operational app logs → console only -->
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{ISO8601} %-5level [%thread] %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Synthetic events → Logstash TCP JSON (exact schema field names; no @timestamp/@version/level_value) -->
+  <appender name="LOGSTASH_TCP" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+    <destination>${logstashHost}:${logstashPort}</destination>
+    <ringBufferSize>8192</ringBufferSize>
+    <!-- Drop when full (non-blocking producer) -->
+    <waitStrategyType>sleeping</waitStrategyType>
+    <appendTimeout>0</appendTimeout>
+    <reconnectionDelay>5 seconds</reconnectionDelay>
+    <listener class="com.couchbase.logdemo.generator.emit.DropCountingAppenderListener"/>
+    <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+      <providers>
+        <provider class="com.couchbase.logdemo.generator.emit.TypedMdcJsonProvider"/>
+        <logLevel>
+          <fieldName>level</fieldName>
+        </logLevel>
+        <loggerName>
+          <fieldName>logger</fieldName>
+        </loggerName>
+        <threadName>
+          <fieldName>thread</fieldName>
+        </threadName>
+        <message>
+          <fieldName>message</fieldName>
+        </message>
+        <stackTrace>
+          <fieldName>stack_trace</fieldName>
+        </stackTrace>
+      </providers>
+    </encoder>
+  </appender>
+
+  <!-- synthetic.* never inherit console; only TCP -->
+  <logger name="synthetic" level="DEBUG" additivity="false">
+    <appender-ref ref="LOGSTASH_TCP"/>
+  </logger>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+  </root>
+</configuration>

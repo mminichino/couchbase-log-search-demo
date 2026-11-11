@@ -1,0 +1,38 @@
+{{- if .Values.connect.enabled }}
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaConnect
+metadata:
+  name: {{ .Values.connect.name }}
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+  annotations:
+    strimzi.io/use-connector-resources: "true"
+spec:
+  version: {{ .Values.kafka.version | quote }}
+  replicas: {{ .Values.connect.replicas }}
+  bootstrapServers: {{ printf "%s-kafka-bootstrap:9092" .Values.kafka.clusterName | quote }}
+  image: {{ .Values.connect.image | quote }}
+  groupId: {{ .Values.connect.name | quote }}
+  configStorageTopic: {{ printf "%s-configs" .Values.connect.name | quote }}
+  offsetStorageTopic: {{ printf "%s-offsets" .Values.connect.name | quote }}
+  statusStorageTopic: {{ printf "%s-status" .Values.connect.name | quote }}
+  resources:
+    {{- toYaml .Values.connect.resources | nindent 4 }}
+  config:
+    config.storage.replication.factor: {{ .Values.kafka.replicas }}
+    offset.storage.replication.factor: {{ .Values.kafka.replicas }}
+    status.storage.replication.factor: {{ .Values.kafka.replicas }}
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: "false"
+  template:
+    connectContainer:
+      env:
+        - name: CB_USERNAME
+          value: {{ .Values.connect.couchbaseUsername | quote }}
+        - name: CB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.connect.couchbasePasswordSecret }}
+              key: password
+{{- end }}

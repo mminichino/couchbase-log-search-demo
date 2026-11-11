@@ -1,0 +1,200 @@
+{
+  "uid": "logdemo-executive",
+  "title": "Executive overview",
+  "description": "Events, errors, and slow requests. Prefer last 15m\u20131h; wide ranges are slower under MOI.",
+  "tags": [
+    "logdemo",
+    "executive"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 3,
+  "refresh": "30s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Events per minute by level",
+      "gridPos": {
+        "h": 9,
+        "w": 16,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "couchbase"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "couchbase"
+          },
+          "query": "SELECT MILLIS_TO_STR(FLOOR(ts_ms / 60000) * 60000) AS `time`,\n       `level`,\n       COUNT(*) AS events\nFROM logs.app.events\nWHERE time_range(ts_ms)\nGROUP BY FLOOR(ts_ms / 60000) * 60000, `level`"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "fillOpacity": 40
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Error count (window)",
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "couchbase"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "couchbase"
+          },
+          "query": "SELECT MILLIS_TO_STR(MAX(ts_ms)) AS `time`,\n       COUNT(*) AS errors\nFROM logs.app.events\nWHERE time_range(ts_ms) AND `level` = \"ERROR\" "
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 200
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/errors/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Errors by service",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "couchbase"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "couchbase"
+          },
+          "query": "SELECT MILLIS_TO_STR(MAX(ts_ms)) AS `time`,\n       service,\n       COUNT(*) AS errors\nFROM logs.app.events\nWHERE time_range(ts_ms) AND `level` = \"ERROR\"\nGROUP BY service\nORDER BY COUNT(*) DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Slow requests (>500ms) per minute by service",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "couchbase"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "couchbase"
+          },
+          "query": "SELECT MILLIS_TO_STR(FLOOR(ts_ms / 60000) * 60000) AS `time`,\n       service,\n       COUNT(*) AS slow\nFROM logs.app.events\nWHERE time_range(ts_ms) AND duration_ms > 500\nGROUP BY FLOOR(ts_ms / 60000) * 60000, service"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logdemo-operators-scaffold
+  labels:
+    {{- include "logdemo-operators.labels" . | nindent 4 }}
+data:
+  phase: "1-skeleton"
+  strimziEnabled: {{ .Values.strimzi.enabled | quote }}
+  couchbaseOperatorEnabled: {{ .Values.couchbaseOperator.enabled | quote }}
+  externalSecretsEnabled: {{ .Values.externalSecrets.enabled | quote }}

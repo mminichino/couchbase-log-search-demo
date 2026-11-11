@@ -1,0 +1,89 @@
+{{- if .Values.couchbase.enabled }}
+apiVersion: couchbase.com/v2
+kind: CouchbaseCluster
+metadata:
+  name: {{ .Values.couchbase.clusterName }}
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+spec:
+  image: {{ .Values.couchbase.image | quote }}
+  # Pod-level context (fsGroup) — required for writable CSI/Hyperdisk mounts.
+  # Container-level fields live under spec.security.securityContext and do not accept fsGroup.
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: Always
+    runAsUser: 1000
+    runAsNonRoot: true
+  security:
+    adminSecret: {{ .Values.couchbase.adminSecret }}
+    rbac:
+      managed: true
+      selector:
+        matchLabels:
+          app.kubernetes.io/part-of: logdemo
+          logdemo.couchbase.com/rbac: "true"
+  buckets:
+    managed: true
+    selector:
+      matchLabels:
+        app.kubernetes.io/part-of: logdemo
+        logdemo.couchbase.com/bucket: "true"
+  cluster:
+    dataServiceMemoryQuota: {{ .Values.couchbase.quotas.dataMb }}Mi
+    indexServiceMemoryQuota: {{ .Values.couchbase.quotas.indexMb }}Mi
+    searchServiceMemoryQuota: {{ .Values.couchbase.quotas.searchMb }}Mi
+    analyticsServiceMemoryQuota: {{ .Values.couchbase.quotas.analyticsMb }}Mi
+    indexStorageSetting: {{ .Values.couchbase.indexStorageSetting | default "plasma" | quote }}
+  networking:
+    exposeAdminConsole: true
+    adminConsoleServices:
+      - data
+    # Must be NodePort or LoadBalancer (ClusterIP is not a valid enum here).
+    adminConsoleServiceType: NodePort
+    # Skip exposedFeatures: per-pod Services + ClusterIP templates conflict with
+    # externalTrafficPolicy=Local. Clients use the headless cb-logdemo-srv Service.
+    dns:
+      domain: cluster.local
+  servers:
+    - name: all
+      size: {{ .Values.couchbase.servers }}
+      services:
+        - data
+        - index
+        - query
+        - search
+        - analytics
+      volumeMounts:
+        default: data
+        index: index
+        analytics:
+          - analytics
+      resources:
+        requests:
+          cpu: {{ .Values.couchbase.resources.requests.cpu | quote }}
+          memory: {{ .Values.couchbase.resources.requests.memory | quote }}
+        limits:
+          memory: {{ .Values.couchbase.resources.limits.memory | quote }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: {{ .Values.couchbase.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.couchbase.dataStorageGi }}Gi
+    - metadata:
+        name: index
+      spec:
+        storageClassName: {{ .Values.couchbase.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.couchbase.indexStorageGi }}Gi
+    - metadata:
+        name: analytics
+      spec:
+        storageClassName: {{ .Values.couchbase.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.couchbase.analyticsStorageGi }}Gi
+{{- end }}

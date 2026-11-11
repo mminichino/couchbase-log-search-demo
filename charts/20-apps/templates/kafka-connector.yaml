@@ -1,0 +1,30 @@
+{{- if .Values.connector.enabled }}
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaConnector
+metadata:
+  name: {{ .Values.connector.name }}
+  labels:
+    {{- include "logdemo-apps.labels" . | nindent 4 }}
+    strimzi.io/cluster: {{ .Values.connector.connectCluster }}
+spec:
+  class: com.couchbase.connect.kafka.CouchbaseSinkConnector
+  tasksMax: {{ .Values.connector.tasksMax }}
+  autoRestart:
+    enabled: true
+  config:
+    topics: {{ .Values.connector.topics | quote }}
+    couchbase.seed.nodes: {{ .Values.connector.couchbaseSeed | quote }}
+    couchbase.bucket: {{ .Values.connector.bucket | quote }}
+    couchbase.default.collection: {{ .Values.connector.collection | quote }}
+    couchbase.document.id: ${/event_id}
+    couchbase.document.expiration: {{ .Values.connector.documentExpiration | quote }}
+    # Strimzi registers EnvVarConfigProvider as "strimzienv" (not "env").
+    couchbase.username: ${strimzienv:CB_USERNAME}
+    couchbase.password: ${strimzienv:CB_PASSWORD}
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: "false"
+    errors.tolerance: all
+    errors.deadletterqueue.topic.name: {{ .Values.connector.dlqTopic | quote }}
+    errors.deadletterqueue.topic.replication.factor: {{ .Values.connector.dlqReplication | int }}
+{{- end }}

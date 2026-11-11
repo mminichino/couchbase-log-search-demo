@@ -1,0 +1,30 @@
+{{- if .Values.kafka.enabled }}
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: logs-app-v1
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    strimzi.io/cluster: {{ .Values.kafka.clusterName }}
+spec:
+  topicName: {{ .Values.kafka.topic | quote }}
+  partitions: {{ .Values.kafka.partitions }}
+  replicas: {{ .Values.kafka.replicas }}
+  config:
+    retention.ms: "604800000"
+    segment.bytes: "1073741824"
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: logs-app-dlq
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    strimzi.io/cluster: {{ .Values.kafka.clusterName }}
+spec:
+  topicName: {{ .Values.kafka.dlqTopic | quote }}
+  partitions: 1
+  replicas: {{ .Values.kafka.replicas }}
+  config:
+    retention.ms: "604800000"
+{{- end }}

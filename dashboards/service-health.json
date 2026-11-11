@@ -1,0 +1,196 @@
+{
+  "uid": "logdemo-service-health",
+  "title": "Service health",
+  "description": "HTTP errors, slow endpoints, region/version. Prefer last 15m\u20131h.",
+  "tags": [
+    "logdemo",
+    "service"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 3,
+  "refresh": "30s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "5xx per minute by service",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "couchbase"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "couchbase"
+          },
+          "query": "SELECT MILLIS_TO_STR(FLOOR(ts_ms / 60000) * 60000) AS `time`,\n       service,\n       COUNT(*) AS count_5xx\nFROM logs.app.events\nWHERE time_range(ts_ms) AND http_status >= 500\nGROUP BY FLOOR(ts_ms / 60000) * 60000, service"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "4xx per minute by service",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "couchbase"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "couchbase"
+          },
+          "query": "SELECT MILLIS_TO_STR(FLOOR(ts_ms / 60000) * 60000) AS `time`,\n       service,\n       COUNT(*) AS count_4xx\nFROM logs.app.events\nWHERE time_range(ts_ms) AND http_status >= 400 AND http_status < 500\nGROUP BY FLOOR(ts_ms / 60000) * 60000, service"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Slowest endpoints",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "couchbase"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "couchbase"
+          },
+          "query": "SELECT MILLIS_TO_STR(MAX(ts_ms)) AS `time`,\n       service, http_path,\n       ROUND(AVG(duration_ms)) AS avg_ms,\n       MAX(duration_ms) AS max_ms,\n       COUNT(*) AS events\nFROM logs.app.events\nWHERE time_range(ts_ms) AND http_path IS NOT MISSING\nGROUP BY service, http_path\nORDER BY AVG(duration_ms) DESC\nLIMIT 25"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Events by region",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "couchbase"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "couchbase"
+          },
+          "query": "SELECT MILLIS_TO_STR(MAX(ts_ms)) AS `time`, region, COUNT(*) AS events\nFROM logs.app.events WHERE time_range(ts_ms) GROUP BY region ORDER BY COUNT(*) DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Events by version",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      },
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "couchbase"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "couchbase"
+          },
+          "query": "SELECT MILLIS_TO_STR(MAX(ts_ms)) AS `time`, version, COUNT(*) AS events\nFROM logs.app.events WHERE time_range(ts_ms) GROUP BY version ORDER BY COUNT(*) DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    }
+  ]
+}

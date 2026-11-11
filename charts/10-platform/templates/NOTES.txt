@@ -1,0 +1,8 @@
+logdemo-platform
+
+Kafka: {{ .Values.kafka.clusterName }} (enabled={{ .Values.kafka.enabled }})
+  bootstrap: {{ .Values.kafka.clusterName }}-kafka-bootstrap:9092
+  topics: {{ .Values.kafka.topic }}, {{ .Values.kafka.dlqTopic }}
+
+Couchbase: {{ .Values.couchbase.clusterName }} (enabled={{ .Values.couchbase.enabled }})
+SecretStore: {{ .Values.secretStore.name }} (enabled={{ .Values.secretStore.enabled }})

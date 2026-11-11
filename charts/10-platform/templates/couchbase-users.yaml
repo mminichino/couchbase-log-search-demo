@@ -1,0 +1,225 @@
+{{- if .Values.couchbase.enabled }}
+{{- /* kafka-sink: write to logs.app.events */}}
+apiVersion: couchbase.com/v2
+kind: CouchbaseGroup
+metadata:
+  name: logdemo-kafka-sink
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/rbac: "true"
+spec:
+  roles:
+    - name: data_writer
+      bucket: {{ .Values.couchbase.bucket }}
+      scopes:
+        resources:
+          - name: {{ .Values.couchbase.scope }}
+      collections:
+        resources:
+          - name: {{ .Values.couchbase.collection }}
+    - name: data_reader
+      bucket: {{ .Values.couchbase.bucket }}
+      scopes:
+        resources:
+          - name: {{ .Values.couchbase.scope }}
+      collections:
+        resources:
+          - name: {{ .Values.couchbase.collection }}
+---
+apiVersion: couchbase.com/v2
+kind: CouchbaseUser
+metadata:
+  name: kafka-sink
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/rbac: "true"
+spec:
+  name: kafka-sink
+  authDomain: local
+  authSecret: cb-user-kafka-sink
+---
+apiVersion: couchbase.com/v2
+kind: CouchbaseRoleBinding
+metadata:
+  name: logdemo-kafka-sink
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/rbac: "true"
+spec:
+  subjects:
+    - kind: CouchbaseUser
+      name: kafka-sink
+  roleRef:
+    kind: CouchbaseGroup
+    name: logdemo-kafka-sink
+---
+{{- /* grafana-ro: query + search + analytics read for dashboards */}}
+apiVersion: couchbase.com/v2
+kind: CouchbaseGroup
+metadata:
+  name: logdemo-grafana-ro
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/rbac: "true"
+spec:
+  roles:
+    - name: query_select
+      bucket: {{ .Values.couchbase.bucket }}
+      scopes:
+        resources:
+          - name: {{ .Values.couchbase.scope }}
+    - name: fts_searcher
+      bucket: {{ .Values.couchbase.bucket }}
+      scopes:
+        resources:
+          - name: {{ .Values.couchbase.scope }}
+    # Plugin wraps queries with ORDER BY on the time field; that often forces a
+    # sequential scan even when idx_events_time exists.
+    - name: query_use_sequential_scans
+      bucket: {{ .Values.couchbase.bucket }}
+      scopes:
+        resources:
+          - name: {{ .Values.couchbase.scope }}
+      collections:
+        resources:
+          - name: {{ .Values.couchbase.collection }}
+    # analytics_reader is a cluster role; bucket scoping is rejected by admission.
+    - name: analytics_reader
+---
+apiVersion: couchbase.com/v2
+kind: CouchbaseUser
+metadata:
+  name: grafana-ro
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/rbac: "true"
+spec:
+  name: grafana-ro
+  authDomain: local
+  authSecret: cb-user-grafana-ro
+---
+apiVersion: couchbase.com/v2
+kind: CouchbaseRoleBinding
+metadata:
+  name: logdemo-grafana-ro
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/rbac: "true"
+spec:
+  subjects:
+    - kind: CouchbaseUser
+      name: grafana-ro
+  roleRef:
+    kind: CouchbaseGroup
+    name: logdemo-grafana-ro
+---
+{{- /* discover-app */}}
+apiVersion: couchbase.com/v2
+kind: CouchbaseGroup
+metadata:
+  name: logdemo-discover-app
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/rbac: "true"
+spec:
+  roles:
+    - name: data_reader
+      bucket: {{ .Values.couchbase.bucket }}
+      scopes:
+        resources:
+          - name: {{ .Values.couchbase.scope }}
+    - name: fts_searcher
+      bucket: {{ .Values.couchbase.bucket }}
+      scopes:
+        resources:
+          - name: {{ .Values.couchbase.scope }}
+    - name: data_reader
+      bucket: {{ .Values.couchbase.bucket }}
+      scopes:
+        resources:
+          - name: {{ .Values.couchbase.discoverScope }}
+    - name: data_writer
+      bucket: {{ .Values.couchbase.bucket }}
+      scopes:
+        resources:
+          - name: {{ .Values.couchbase.discoverScope }}
+    - name: query_select
+      bucket: {{ .Values.couchbase.bucket }}
+      scopes:
+        resources:
+          - name: {{ .Values.couchbase.discoverScope }}
+---
+apiVersion: couchbase.com/v2
+kind: CouchbaseUser
+metadata:
+  name: discover-app
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/rbac: "true"
+spec:
+  name: discover-app
+  authDomain: local
+  authSecret: cb-user-discover-app
+---
+apiVersion: couchbase.com/v2
+kind: CouchbaseRoleBinding
+metadata:
+  name: logdemo-discover-app
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/rbac: "true"
+spec:
+  subjects:
+    - kind: CouchbaseUser
+      name: discover-app
+  roleRef:
+    kind: CouchbaseGroup
+    name: logdemo-discover-app
+---
+{{- /* demo-analyst: console / query / search */}}
+apiVersion: couchbase.com/v2
+kind: CouchbaseGroup
+metadata:
+  name: logdemo-demo-analyst
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/rbac: "true"
+spec:
+  roles:
+    - name: ro_admin
+    - name: data_reader
+      bucket: {{ .Values.couchbase.bucket }}
+    - name: query_select
+      bucket: {{ .Values.couchbase.bucket }}
+    - name: fts_searcher
+      bucket: {{ .Values.couchbase.bucket }}
+    - name: query_list_index
+      bucket: {{ .Values.couchbase.bucket }}
+---
+apiVersion: couchbase.com/v2
+kind: CouchbaseUser
+metadata:
+  name: demo-analyst
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/rbac: "true"
+spec:
+  name: demo-analyst
+  authDomain: local
+  authSecret: cb-user-demo-analyst
+---
+apiVersion: couchbase.com/v2
+kind: CouchbaseRoleBinding
+metadata:
+  name: logdemo-demo-analyst
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/rbac: "true"
+spec:
+  subjects:
+    - kind: CouchbaseUser
+      name: demo-analyst
+  roleRef:
+    kind: CouchbaseGroup
+    name: logdemo-demo-analyst
+{{- end }}

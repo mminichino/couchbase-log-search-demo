@@ -1,0 +1,28 @@
+{{- if .Values.kafka.enabled }}
+apiVersion: kafka.strimzi.io/v1
+kind: Kafka
+metadata:
+  name: {{ .Values.kafka.clusterName }}
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+spec:
+  kafka:
+    version: {{ .Values.kafka.version | quote }}
+    metadataVersion: {{ .Values.kafka.metadataVersion | quote }}
+    listeners:
+      # Demo simplification: internal plaintext, no credentials.
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+    config:
+      offsets.topic.replication.factor: {{ .Values.kafka.replicas }}
+      transaction.state.log.replication.factor: {{ .Values.kafka.replicas }}
+      transaction.state.log.min.isr: {{ .Values.kafka.replicas }}
+      default.replication.factor: {{ .Values.kafka.replicas }}
+      min.insync.replicas: {{ .Values.kafka.replicas }}
+      auto.create.topics.enable: "false"
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+{{- end }}

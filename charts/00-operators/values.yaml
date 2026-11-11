@@ -1,0 +1,38 @@
+namespace: logdemo
+
+# Pinned versions used by this demo (phase 2/3).
+versions:
+  strimzi: "1.3.1"
+  couchbaseOperatorChart: "2.92.0"   # app 2.9.2 — already on cluster
+  couchbaseOperatorApp: "2.9.2"
+  externalSecretsChart: "1.2.1"      # already on cluster
+  kafka: "4.3.2"                     # Strimzi 1.3.1 default Kafka
+
+strimzi:
+  enabled: true
+  # Subchart values (alias: strimzi → strimzi-kafka-operator)
+  watchAnyNamespace: false
+  # Empty watchNamespaces → operator watches its release namespace (logdemo).
+  watchNamespaces: []
+  resources:
+    requests:
+      memory: 384Mi
+      cpu: 100m
+    limits:
+      memory: 768Mi
+      cpu: 500m
+
+# Terraform installs CAO in namespace "couchbase" (watches that namespace only).
+# This demo also installs a namespace-scoped operator in logdemo so resources
+# in logdemo are reconciled. Admission controller stays the cluster-wide one.
+couchbaseOperator:
+  enabled: true
+  chartVersion: "2.92.0"
+  releaseName: logdemo-cao
+  createCluster: false
+  admissionController: false
+
+# Already present via Terraform module "gke_env" (ClusterSecretStore: gcsm-store).
+externalSecrets:
+  enabled: false
+  chartVersion: "1.2.1"
