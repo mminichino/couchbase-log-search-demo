@@ -57,9 +57,12 @@ grafana:
   enabled: true
   image: grafana-couchbase:12.4.15-cb1.2.1
   port: 3000
-  # Public hostname. Point DNS at the HAProxy LoadBalancer IP (shared with Discover).
-  # Distinct from monitoring/prometheus-grafana at grafana.usc1-demo.gcp.unix.us.com
-  host: logdemo-grafana.usc1-demo.gcp.unix.us.com
+  # Public hostname you control. Point DNS at the HAProxy LoadBalancer IP (shared with Discover).
+  # Prefer a name that cannot collide with any existing monitoring Grafana
+  # (e.g. logdemo-grafana.<your-domain>, not bare grafana.<your-domain>).
+  # Leave empty until set via values or Helm --set (see Makefile GRAFANA_HOST).
+  host: ""
+
   tlsSecretName: grafana-tls
   publicScheme: https
   adminUser: admin
@@ -78,8 +81,10 @@ discover:
   enabled: true
   image: discover:0.1.0
   port: 3000
-  # Public hostname. Point DNS at the HAProxy LoadBalancer IP (shared with Grafana).
-  host: discover.usc1-demo.gcp.unix.us.com
+  # Public hostname you control. Point DNS at the HAProxy LoadBalancer IP (shared with Grafana).
+  # Leave empty until set via values or Helm --set (see Makefile DISCOVER_HOST).
+  host: ""
+
   tlsSecretName: discover-tls
   cbConnStr: couchbase://cb-logdemo-srv.logdemo.svc.cluster.local
   cbUsername: discover-app

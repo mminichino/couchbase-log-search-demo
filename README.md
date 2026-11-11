@@ -23,10 +23,8 @@ Default Kubernetes namespace: `logdemo` (overridable via `NAMESPACE`).
 Prerequisites: `gcloud`, `kubectl`, `helm`, Docker buildx, Maven (Java 21), Node.js for Discover builds, a GKE cluster from your Terraform config (with cert-manager and HAProxy Ingress available), and Artifact Registry / Secret Manager access.
 
 ```bash
-# Path to your GKE Terraform root (not part of this repo)
-export TF_DIR=/path/to/couchbase-terraform/gcp/.../demo
-
-# Cluster already exists? Skip terraform apply.
+cp .env.example .env   # set TF_DIR, CLUSTER_NAME, DISCOVER_HOST, GRAFANA_HOST
+# Cluster already exists? SKIP_TF=1 in .env or on the command line.
 make cluster SKIP_TF=1
 
 # Build/push Connect, generator, Discover, Grafana images (linux/amd64)
@@ -39,7 +37,7 @@ make status
 make url
 ```
 
-Set `discover.host` and `grafana.host` in `charts/20-apps/values.yaml` (or Helm `--set`) to hostnames you control before relying on public Ingress.
+`.env` is gitignored; keep live hostnames and paths only there (or pass `DISCOVER_HOST` / `GRAFANA_HOST` on the command line). Do not put them in committed files — this repo is public.
 
 Sign-in passwords (never committed; read from Secret Manager):
 
@@ -48,7 +46,9 @@ gcloud secrets versions access latest --secret=logdemo-discover-admin-password
 gcloud secrets versions access latest --secret=logdemo-grafana-admin-password
 ```
 
-Trigger an incident scenario:
+### Run the demo
+
+Presenter steps (sign-in, dashboards, inject `payment-outage`, Discover search/trace): [`docs/demo-script.md`](docs/demo-script.md).
 
 ```bash
 make scenario name=payment-outage
@@ -88,6 +88,7 @@ Seven Google Secret Manager names (values never in the repo). Created by `infra/
 
 ## Useful docs
 
+- [`docs/demo-script.md`](docs/demo-script.md) — live presenter walkthrough
 - [`docs/implementation-plan.md`](docs/implementation-plan.md) — end-state plan for harnesses
 - [`docs/search-cookbook.md`](docs/search-cookbook.md) — Discover / Search queries
 - [`docs/grafana-query-sketches.md`](docs/grafana-query-sketches.md) — working Explore SQL++ sketches

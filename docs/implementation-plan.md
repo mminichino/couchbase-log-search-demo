@@ -526,6 +526,8 @@ Give the coding assistant one phase at a time with this document as context, and
 | 13 | Dashboards | Three dashboards in `dashboards/` (and `charts/20-apps/dashboards/`), loaded by Grafana file provisioning into folder Logdemo | `make down` then `make up` shows Executive overview, Service health, and Incident review populated with no manual import |
 | 14 | README and demo script | Full README; `docs/demo-script.md`; `make scenario` | A new engineer reaches dashboards from the README alone; starting `payment-outage` shows an error spike on Executive overview within 60 seconds |
 
+All fourteen phases are complete for the current stack. Presenter walkthrough: [`docs/demo-script.md`](demo-script.md).
+
 ## Risks and checks before building
 
 - [ ] **Licence.** CAO and Analytics need Couchbase Enterprise Edition. Confirm terms cover this demo.

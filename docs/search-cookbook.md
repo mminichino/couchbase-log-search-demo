@@ -2,7 +2,7 @@
 
 Worked queries against the scoped Search index `logs.app.events_fts`. Sign in to the Couchbase Web Console as **`demo-analyst`**, never as Administrator.
 
-Discover base URL: `https://discover.usc1-demo.gcp.unix.us.com/`.
+Discover base URL: whatever `make url` prints for Discover (path `/` or `/login`).
 
 ## 1. Payment errors (payment-outage)
 
@@ -12,7 +12,7 @@ Query string:
 +service:payments +level:ERROR
 ```
 
-Discover: `https://discover.usc1-demo.gcp.unix.us.com/?q=%2Bservice%3Apayments+%2Blevel%3AERROR&from=now-15m`
+Discover query params: `?q=%2Bservice%3Apayments+%2Blevel%3AERROR&from=now-15m`
 
 SQL++:
 
@@ -41,7 +41,7 @@ REST (`POST` body):
 +service:payments +level:ERROR timeout
 ```
 
-Discover: `https://discover.usc1-demo.gcp.unix.us.com/?q=%2Bservice%3Apayments+%2Blevel%3AERROR+timeout&from=now-1h`
+Discover: `?q=%2Bservice%3Apayments+%2Blevel%3AERROR+timeout&from=now-1h`
 
 ```sql
 SELECT META(e).id, e.ts, e.message, e.trace_id
@@ -60,7 +60,7 @@ After starting `latency-creep`:
 +service:catalog +duration_ms:>500
 ```
 
-Discover: `https://discover.usc1-demo.gcp.unix.us.com/?q=%2Bservice%3Acatalog+%2Bduration_ms%3A%3E500&from=now-30m`
+Discover: `?q=%2Bservice%3Acatalog+%2Bduration_ms%3A%3E500&from=now-30m`
 
 ```sql
 SELECT META(e).id, e.ts, e.http_path, e.duration_ms, e.scenario
@@ -85,7 +85,7 @@ Or narrow by path:
 +service:auth +http_path:/login +level:WARN
 ```
 
-Discover: `https://discover.usc1-demo.gcp.unix.us.com/?q=%2Bservice%3Aauth+%2Blevel%3AWARN&from=now-15m`
+Discover: `?q=%2Bservice%3Aauth+%2Blevel%3AWARN&from=now-15m`
 
 ```sql
 SELECT e.client_ip, COUNT(*) AS c
@@ -105,7 +105,7 @@ After starting `bad-deploy`:
 +service:orders +exception_class:java.lang.NullPointerException
 ```
 
-Discover: `https://discover.usc1-demo.gcp.unix.us.com/?q=%2Bservice%3Aorders+%2Bexception_class%3Ajava.lang.NullPointerException&from=now-30m`
+Discover: `?q=%2Bservice%3Aorders+%2Bexception_class%3Ajava.lang.NullPointerException&from=now-30m`
 
 ```sql
 SELECT e.version, e.exception_class, COUNT(*) AS c
@@ -124,7 +124,7 @@ Pick a `trace_id` from any ERROR hit, then:
 +trace_id:<trace_id>
 ```
 
-Discover: `https://discover.usc1-demo.gcp.unix.us.com/trace/<trace_id>`
+Discover path: `/trace/<trace_id>`
 
 ```sql
 SELECT e.ts, e.service, e.`level`, e.message, e.http_status, e.duration_ms

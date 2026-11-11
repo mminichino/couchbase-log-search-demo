@@ -9,6 +9,10 @@ GKE demo in namespace `logdemo`: generator → Logstash → Kafka → Couchbase 
 
 Canonical plan: `docs/implementation-plan.md`. Entry point: `README.md`.
 
+## Public repo hygiene
+
+This repository is public. Do **not** commit or document live environment data: real Ingress hostnames, DNS zones, LoadBalancer IPs, GCP project IDs, cluster names, `TF_DIR` paths, Secret Manager values, or passwords. Use placeholders (`<discover.host>`, `<grafana.host>`, `make url`) and require operators to set hosts via `.env` (from `.env.example`), chart values, or `DISCOVER_HOST` / `GRAFANA_HOST`. Public third-party URLs (docs.couchbase.com, etc.) are fine.
+
 ## Ask when unclear
 
 Stop and ask before changing: public hostnames/DNS, TLS/Ingress class, secret names, `TF_DIR` / terraform destroy, Couchbase EE topology/quotas, replacing Grafana or Discover, or phase acceptance criteria. Prefer a short clarifying question over guessing.
@@ -28,7 +32,7 @@ Any material project change (charts, images, secrets, hosts, phases, Makefile, d
 - Images: always `linux/amd64`; Grafana `12.4.15` + plugin `1.2.1`
 - Storage: `dynamic-rwo`
 - Secrets: seven GSM names via `gcsm-store`; never commit values
-- Hosts: Discover `discover.usc1-demo.gcp.unix.us.com`; Grafana **`logdemo-grafana.…`** (not bare `grafana.…`)
+- Hosts: set per environment (`discover.host`, `grafana.host`). Prefer Grafana hostname `logdemo-grafana.<domain>` so it cannot collide with bare `grafana.<domain>` monitoring
 - Ingress: **`ingressClassName: haproxy`** + cert-manager Issuer `logdemo-selfsigned` + Certificates → TLS Secrets; DNS A → HAProxy LB IP; `haproxy.org/ssl-redirect-port: "443"`. Do not use GCE ManagedCertificate for these apps.
 
 ## Deploy learnings (do not regress)
@@ -40,4 +44,4 @@ Any material project change (charts, images, secrets, hosts, phases, Makefile, d
 
 ## Phases
 
-1–13 done (Grafana dashboards in folder Logdemo). Next: **14** `docs/demo-script.md`.
+1–14 done. Presenter walkthrough: `docs/demo-script.md`.

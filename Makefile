@@ -1,13 +1,23 @@
 # Couchbase log analytics demo
 # Releases install into namespace logdemo unless NAMESPACE is overridden.
+# Optional local overrides: copy .env.example → .env (gitignored).
+
+-include .env
+export
 
 NAMESPACE      ?= logdemo
-TF_DIR         ?= /Users/michael/IdeaProjects/couchbase-terraform/gcp/us-central1/demo
+# Local path to the existing GKE Terraform config (required for make cluster / destroy).
+TF_DIR         ?=
 PROJECT        ?= $(shell gcloud config get-value project 2>/dev/null)
 REGION         ?= us-central1
-CLUSTER_NAME   ?= usc1-demo-gke
+# Your GKE cluster name (required for make cluster).
+CLUSTER_NAME   ?=
 REGISTRY       ?= $(REGION)-docker.pkg.dev/$(PROJECT)/logdemo
+# Public Ingress hostnames (optional; also settable in charts/20-apps/values.yaml).
 DISCOVER_HOST  ?=
+GRAFANA_HOST   ?=
+
+
 
 CHARTS         := charts/00-operators charts/10-platform charts/20-apps
 HELM_TIMEOUT   ?= 15m
@@ -69,7 +79,8 @@ up: lint
 		--namespace "$(NAMESPACE)" --wait --timeout "$(HELM_TIMEOUT)"
 	helm upgrade --install logdemo-apps charts/20-apps \
 		--namespace "$(NAMESPACE)" --wait --timeout "$(HELM_TIMEOUT)" \
-		$(if $(DISCOVER_HOST),--set discover.host=$(DISCOVER_HOST),)
+		$(if $(DISCOVER_HOST),--set discover.host=$(DISCOVER_HOST),) \
+		$(if $(GRAFANA_HOST),--set grafana.host=$(GRAFANA_HOST),)
 
 down:
 	-helm uninstall logdemo-apps --namespace "$(NAMESPACE)"
