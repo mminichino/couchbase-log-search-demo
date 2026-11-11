@@ -188,9 +188,12 @@ data:
     # as the only events GSI: extra indexes (trace/time) push indexer into Paused under demo volume.
     n1ql "CREATE INDEX idx_events_ts_ms_num IF NOT EXISTS ON \`logs\`.\`app\`.\`events\`(TO_NUMBER(ts_ms), \`level\`, service, region)" || true
     n1ql "CREATE PRIMARY INDEX idx_discover_users IF NOT EXISTS ON \`logs\`.\`discover\`.\`users\`" || true
+    n1ql "CREATE PRIMARY INDEX idx_discover_data_views IF NOT EXISTS ON \`logs\`.\`discover\`.\`data_views\`" || true
+    n1ql "CREATE PRIMARY INDEX idx_discover_saved_searches IF NOT EXISTS ON \`logs\`.\`discover\`.\`saved_searches\`" || true
 
 
     echo "Waiting for search service on ${CB_HOST}:8094..."
+
     wait_http "http://${CB_HOST}:8094/api/cfg"
 
     INDEX_JSON=/config/events_fts.json

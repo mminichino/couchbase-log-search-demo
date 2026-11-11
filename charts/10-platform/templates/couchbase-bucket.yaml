@@ -82,4 +82,24 @@ metadata:
     logdemo.couchbase.com/collection: discover
 spec:
   name: sessions
+---
+apiVersion: couchbase.com/v2
+kind: CouchbaseCollection
+metadata:
+  name: logs-discover-data-views
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/collection: discover
+spec:
+  name: data_views
+---
+apiVersion: couchbase.com/v2
+kind: CouchbaseCollection
+metadata:
+  name: logs-discover-saved-searches
+  labels:
+    {{- include "logdemo-platform.labels" . | nindent 4 }}
+    logdemo.couchbase.com/collection: discover
+spec:
+  name: saved_searches
 {{- end }}

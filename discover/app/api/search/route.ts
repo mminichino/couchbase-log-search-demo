@@ -3,6 +3,7 @@ import { isAuthUser, requireApiUser } from "@/lib/auth";
 import {
   parseFilters,
   parsePaging,
+  parseSort,
   runSearch,
   SearchValidationError,
 } from "@/lib/search-request";
@@ -26,8 +27,16 @@ export async function GET(req: NextRequest) {
       url.searchParams.get("skip"),
       url.searchParams.get("limit"),
     );
+    let sort: string;
+    try {
+      sort = parseSort(url.searchParams.get("sort"));
+    } catch (err) {
+      throw new SearchValidationError(
+        err instanceof Error ? err.message : "Invalid sort",
+      );
+    }
 
-    const result = await runSearch({ q, from, to, filters, skip, limit });
+    const result = await runSearch({ q, from, to, filters, skip, limit, sort });
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof SearchValidationError) {

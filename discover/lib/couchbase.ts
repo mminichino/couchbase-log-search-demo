@@ -8,6 +8,8 @@ export type AppCollections = {
   events: Collection;
   users: Collection;
   sessions: Collection;
+  dataViews: Collection;
+  savedSearches: Collection;
 };
 
 declare global {
@@ -40,8 +42,19 @@ async function connectCluster(): Promise<AppCollections> {
   const discoverScope = bucket.scope("discover");
   const users = discoverScope.collection("users");
   const sessions = discoverScope.collection("sessions");
+  const dataViews = discoverScope.collection("data_views");
+  const savedSearches = discoverScope.collection("saved_searches");
 
-  return { cluster, bucket, eventsScope, events, users, sessions };
+  return {
+    cluster,
+    bucket,
+    eventsScope,
+    events,
+    users,
+    sessions,
+    dataViews,
+    savedSearches,
+  };
 }
 
 export function getCouchbase(): Promise<AppCollections> {

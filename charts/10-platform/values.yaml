@@ -39,12 +39,14 @@ couchbase:
   clusterName: cb-logdemo
   image: couchbase/server:enterprise-8.0.3
   adminSecret: cb-logdemo-auth
-  servers: 1
+  servers: 3
+
   bucket: logs
   scope: app
   collection: events
   discoverScope: discover
-  eventsMaxTTL: "168h" # 7 days
+  eventsMaxTTL: "24h" # 1 day
+
   storageClass: dynamic-rwo
   dataStorageGi: 50
   indexStorageGi: 20
@@ -66,8 +68,8 @@ couchbase:
       memory: 8Gi
   init:
     enabled: true
-    # rev 4: only idx_events_ts_ms_num on events (MOI cannot hold multiple large GSIs)
-    revision: "4"
+    # rev 5: discover data_views + saved_searches primary indexes
+    revision: "5"
     image: curlimages/curl:8.11.1
 
 secretStore:

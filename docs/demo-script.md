@@ -1,6 +1,6 @@
 # Demo script
 
-Presenter walkthrough for the Couchbase log analytics demo. Assumes the stack is already up (`make up`) and DNS points Discover and Grafana at the HAProxy LoadBalancer IP (`make url`).
+Presenter walkthrough for the Couchbase log analytics demo. Assumes the stack is already up (`make up`) and DNS points Discover, Grafana, and the Couchbase UI at the HAProxy LoadBalancer IP (`make url`).
 
 Data is synthetic. Self-signed TLS will show a browser warning — proceed past it.
 
@@ -53,6 +53,8 @@ If panels look empty, set the time picker to **Last 15 minutes** (wide ranges ar
 Other scenarios for follow-ups: `latency-creep`, `auth-attack`, `bad-deploy` (same `make scenario name=…` form).
 
 ## Act 3 — Search the incident (Discover)
+
+Optional: show **Data view** `logs.app.events`, add a column from Selected fields, click a column header to sort, open a row (detail stays put on Refresh), then **Save** a session.
 
 1. In Discover, query:
 

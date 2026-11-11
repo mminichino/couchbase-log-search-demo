@@ -11,7 +11,7 @@ spec:
   partitions: {{ .Values.kafka.partitions }}
   replicas: {{ .Values.kafka.replicas }}
   config:
-    retention.ms: "604800000"
+    retention.ms: "86400000"
     segment.bytes: "1073741824"
 ---
 apiVersion: kafka.strimzi.io/v1
@@ -26,5 +26,5 @@ spec:
   partitions: 1
   replicas: {{ .Values.kafka.replicas }}
   config:
-    retention.ms: "604800000"
+    retention.ms: "86400000"
 {{- end }}

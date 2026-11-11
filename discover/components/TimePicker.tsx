@@ -10,6 +10,7 @@ type Props = {
   onRelative: (id: RelativeWindow) => void;
   onAbsolute: (from: string, to: string) => void;
   onRefresh: (value: "off" | "5" | "10" | "30") => void;
+  onManualRefresh: () => void;
 };
 
 export function TimePicker({
@@ -20,6 +21,7 @@ export function TimePicker({
   onRelative,
   onAbsolute,
   onRefresh,
+  onManualRefresh,
 }: Props) {
   return (
     <div className="flex flex-wrap items-end gap-3">
@@ -78,6 +80,14 @@ export function TimePicker({
           <option value="30">30s</option>
         </select>
       </label>
+      <button
+        type="button"
+        onClick={onManualRefresh}
+        className="rounded-md border border-ink-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-800 hover:bg-ink-50"
+        title="Run search again (relative ranges re-anchor to now)"
+      >
+        Refresh
+      </button>
     </div>
   );
 }

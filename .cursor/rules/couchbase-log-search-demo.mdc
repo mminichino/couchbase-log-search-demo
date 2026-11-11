@@ -28,7 +28,7 @@ Any material project change (charts, images, secrets, hosts, phases, Makefile, d
 
 ## Stack pins
 
-- Charts: `00-operators` → `10-platform` → `20-apps`; Kafka `logdemo`; Couchbase `cb-logdemo` / `cb-logdemo-srv`
+- Charts: `00-operators` → `10-platform` → `20-apps`; Kafka `logdemo`; Couchbase `cb-logdemo` / `cb-logdemo-srv` (**3** Server pods by default)
 - Images: always `linux/amd64`; Grafana `12.4.15` + plugin `1.2.1`
 - Storage: `dynamic-rwo`
 - Secrets: seven GSM names via `gcsm-store`; never commit values
@@ -40,6 +40,7 @@ Any material project change (charts, images, secrets, hosts, phases, Makefile, d
 - Connect: `${strimzienv:CB_*}`; memory ≥ 2Gi; amd64 image
 - Logstash: rename `message` → `[@metadata][raw]` before `json` filter
 - Grafana plugin: `time_range()`; `TO_STRING(ts_ms)`; quote `` `level` ``; `grafana-ro` needs `query_use_sequential_scans`; GSI **`idx_events_ts_ms_num` on `TO_NUMBER(ts_ms)`** is required. On MOI do **not** also create large `idx_events_trace`/`idx_events_time` — they pause the indexer; Grafana queries then hang.
+- Discover: data views + saved sessions in `logs.discover`; refresh is interval/manual snapshot (preserve row selection); sortable columns via Search `sort`; do not pull `lib/data-views` server modules into client components
 - Prefer `helm upgrade` over force-replacing Ingress objects
 
 ## Phases

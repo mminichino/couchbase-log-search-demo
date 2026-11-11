@@ -62,7 +62,8 @@ connector:
   couchbaseSeed: cb-logdemo-srv
   bucket: logs
   collection: app.events
-  documentExpiration: 7d
+  documentExpiration: 1d
+
 
 grafana:
   enabled: true

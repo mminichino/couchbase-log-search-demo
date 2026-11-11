@@ -48,7 +48,7 @@ gcloud secrets versions access latest --secret=logdemo-grafana-admin-password
 
 ### Run the demo
 
-Presenter steps (sign-in, dashboards, inject `payment-outage`, Discover search/trace): [`docs/demo-script.md`](docs/demo-script.md).
+Presenter steps (sign-in, dashboards, inject `payment-outage`, Discover search/trace): [`docs/demo-script.md`](docs/demo-script.md). Discover supports Kibana-like data views, saved sessions, sortable columns, and interval/manual refresh (config stored in Couchbase `logs.discover`).
 
 ```bash
 make scenario name=payment-outage

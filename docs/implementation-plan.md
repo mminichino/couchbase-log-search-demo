@@ -35,7 +35,7 @@ generator (structured JSON over TCP)
     → Logstash :5000
     → Kafka topic logs.app.v1
     → Kafka Connect couchbase-sink
-    → Couchbase logs.app.events (TTL 7d)
+    → Couchbase logs.app.events (TTL 1d)
          ├─ Search index events_fts     → Discover
          ├─ Query / Analytics (+ GSI)   → Grafana
          └─ logs.discover.users|sessions → Discover auth
@@ -86,15 +86,15 @@ Event schema, flat so it maps cleanly to SQL++ and Search. Field names avoid `@`
 
 ## Couchbase design
 
-Each log event is one JSON document in `logs.app.events`, keyed by `event_id`, expiring after 7 days. Grafana reads the collection (and optionally Analytics view `events_v`) with SQL++. Discover reads Search hits and hydrates full documents by key.
+Each log event is one JSON document in `logs.app.events`, keyed by `event_id`, expiring after 1 day. Grafana reads the collection (and optionally Analytics view `events_v`) with SQL++. Discover reads Search hits and hydrates full documents by key.
 
-The Couchbase Autonomous Operator deploys the cluster: one pod running the data, index, query, search and analytics services. Bucket, scope, collection and users are declared as operator resources. GSI indexes, the Search index and Analytics objects are created by a one-shot init Job.
+The Couchbase Autonomous Operator deploys the cluster: **three** pods (default `couchbase.servers: 3`), each running the data, index, query, search and analytics services. Bucket, scope, collection and users are declared as operator resources. GSI indexes, the Search index and Analytics objects are created by a one-shot init Job.
 
 | Object | Definition | Why |
 | --- | --- | --- |
 | Bucket `logs` | Magma, 1 GB quota, 0 replicas | Magma is the 8.0 default and suits append-heavy data |
-| Collection `app.events` | `maxTTL` 7 days | Retention, the equivalent of an ILM delete phase |
-| Scope `discover`, collections `users` and `sessions` | No collection TTL. Session documents carry their own 12-hour expiry | Discover page accounts and sign-in sessions, kept apart from log data |
+| Collection `app.events` | `maxTTL` 1 day | Retention, the equivalent of an ILM delete phase |
+| Scope `discover`, collections `users`, `sessions`, `data_views`, `saved_searches` | No collection TTL. Auth session documents carry their own 12-hour expiry | Discover accounts, sign-in sessions, data views, and saved Discover sessions |
 | Document key | `event_id` from the event body | Kafka redelivery becomes an idempotent upsert |
 | Index `idx_events_ts_ms_num` | `(TO_NUMBER(ts_ms), level, service, region)` | Required for Grafana (`time_range` → `TO_NUMBER(ts_ms)`). On MOI, this is the only events GSI — adding `idx_events_trace` / `idx_events_time` pauses the indexer under demo volume |
 | Index `idx_events_trace` / `idx_events_time` | optional | Add only after switching indexer storage to plasma or raising index RAM enough that indexes stay Ready |
@@ -119,7 +119,7 @@ couchbase.seed.nodes: cb-logdemo-srv
 couchbase.bucket: logs
 couchbase.default.collection: app.events
 couchbase.document.id: ${/event_id}
-couchbase.document.expiration: 7d
+couchbase.document.expiration: 1d
 couchbase.username: ${strimzienv:CB_USERNAME}
 couchbase.password: ${strimzienv:CB_PASSWORD}
 key.converter: org.apache.kafka.connect.storage.StringConverter
@@ -324,7 +324,7 @@ Memory requests leave room on a three-node `e2-standard-4`-class pool for system
 
 | Component | Pods | Memory | CPU |
 | --- | --- | --- | --- |
-| Couchbase Server (data 1024 / index 3072 / search 1024 / analytics 1024 MB quotas; MOI) | 1 | 8 Gi | 2 |
+| Couchbase Server (data 1024 / index 3072 / search 1024 / analytics 1024 MB quotas; MOI) | 3 | 8 Gi each | 2 each |
 | Kafka | 1 | 1.5 Gi | 1 |
 | Logstash | 1 | 1.5 Gi | 1 |
 | Kafka Connect | 1 | 2 Gi | 0.5 |
@@ -421,19 +421,23 @@ The Discover page is one Next.js app, App Router and TypeScript, that serves the
 | Time picker | Quick ranges (15m–7d) plus absolute start/end; default 15 minutes; date range on `ts` |
 | Hit histogram | Date range facet on `ts`, at most 60 buckets; fixed interval ladder; drag to zoom |
 | Field sidebar | Term facets (top 10) for service, level, region, host, version, scenario, exception_class, http_path, client_ip; numeric range facet for http_status classes |
-| Document table | Newest first; default columns ts, level, service, message; 50 rows, load more up to 500; message highlighting |
-| Expanded document | All fields + JSON; filter-for / filter-out |
+| Document table | Selected columns (default ts, level, service, message); sortable headers for indexed fields; 50 rows, load more up to 500; message highlighting |
+| Expanded document | Right-hand detail panel; selection preserved across refresh when the hit remains |
 | Surrounding documents | Trace view at `/trace/{trace_id}` |
-| Saved search and share | All state in the URL |
-| Auto-refresh | Off, 5, 10 or 30 seconds |
+| Data views | Named Search source bindings in `logs.discover.data_views` (bootstrap `logs.app.events` → `events_fts`) |
+| Saved sessions | Save/Open query, filters, columns, sort, time range, refresh, dataViewId in `logs.discover.saved_searches` |
+| URL state | Shareable mirror of the active session (`q`, `from`/`to`, `filter`, `columns`, `sort`, `refresh`, `dataView`) |
+| Refresh | Manual Refresh button; interval Off / 5 / 10 / 30 seconds (snapshot replace, not live scroll) |
 | Inspect | Shows Search request JSON, total hits, Search service time |
 
-Each page load sends one Search request to `events_fts` (query string + time range + filters + facets, sort `-ts`, limit 50). The route handler then reads those documents by key from the data service.
+Each page load sends one Search request to `events_fts` (query string + time range + filters + facets, sort from URL default `-ts`, limit 50). The route handler then reads those documents by key from the data service.
 
 | Route | Returns |
 | --- | --- |
 | `GET /api/search` | `total`, `tookMs`, `hits`, `histogram`, `facets`, `request` |
 | `GET /api/trace/{traceId}` | Up to 100 events for that trace, oldest first |
+| `GET/POST /api/data-views`, `GET/PATCH/DELETE /api/data-views/{id}` | Data view CRUD (bootstrap view is not deletable) |
+| `GET/POST /api/saved-searches`, `GET/PATCH/DELETE /api/saved-searches/{id}` | Saved Discover sessions |
 | `GET /api/healthz` | 200 when the cluster connection is ready (no auth; LB health check) |
 | `POST /api/auth/login`, `POST /api/auth/logout` | Session cookie |
 | `POST /api/account/password` | Change own password; end other sessions |
@@ -450,8 +454,10 @@ Each page load sends one Search request to `events_fts` (query string + time ran
 | `lib/auth.ts` | Hashing, sessions, `requireUser` / `requireAdmin` |
 | `lib/users.ts` | Accounts in `logs.discover.users`; first-start `admin` bootstrap |
 | `lib/search-request.ts` | URL state → Search JSON (Inspect shows the same object) |
+| `lib/fields.ts` | Default columns, sortable allowlist, column/sort parsers |
+| `lib/data-views.ts` / `lib/saved-searches.ts` | Couchbase CRUD for Discover config objects |
 | `lib/time.ts` | Relative ranges and bucket ladder |
-| `components/` | QueryBar, TimePicker, Histogram, FieldSidebar, DocTable, DocDetail, InspectPanel, UserTable |
+| `components/` | QueryBar, TimePicker, Histogram, FieldSidebar, DocTable, DocDetail, DataViewControls, InspectPanel, UserTable |
 
 Build and runtime rules:
 
@@ -484,6 +490,8 @@ Accounts are local to the Discover page: no self-registration and no external Id
 | --- | --- | --- |
 | User | `user::<username>` in `logs.discover.users` | username, role, passwordHash, disabled, mustChangePassword, tokenVersion, failedLogins, lockedUntil, createdAt, lastLoginAt |
 | Session | SHA-256 of cookie token in `logs.discover.sessions` | username, tokenVersion, createdAt, 12h expiry |
+| Data view | `dataview::<id>` in `logs.discover.data_views` | title, searchIndex, timeField, defaultColumns, availableFields, bootstrap |
+| Saved search | `saved::<id>` in `logs.discover.saved_searches` | title, dataViewId, q, filters, columns, sort, from/to, refresh, owner |
 
 Exposure: TLS ends at HAProxy using the cert-manager Secret. HTTP redirects to HTTPS. The Discover Ingress routes only to the Discover Service.
 
@@ -495,13 +503,13 @@ The README is the single entry point: prerequisites, `TF_DIR`, GCP setup, DNS fo
 
 Sizing section must cover: volume from eps × retention; data disk with compression headroom; Magma full eviction working set; narrow Search mapping; Analytics as a second copy; cheap narrow GSIs (never index `message` in GSI); separate server classes beyond the demo; matching Kafka partitions and `tasks.max` to ingest.
 
-Worked volumes at 1 KB per event and 7 days retention, before compression:
+Worked volumes at 1 KB per event and 1 day retention, before compression:
 
 | Average events per second | Documents retained | Raw data per copy |
 | --- | --- | --- |
-| 20 (this demo live) | 12.1 million | 12 GB |
-| 500 | 302 million | 302 GB |
-| 5,000 | 3.02 billion | 3.0 TB |
+| 20 (this demo live) | 1.7 million | 1.7 GB |
+| 500 | 43 million | 43 GB |
+| 5,000 | 432 million | 432 GB |
 
 Show how to calibrate from bucket statistics on the running demo.
 
@@ -544,7 +552,7 @@ All fourteen phases are complete for the current stack. Presenter walkthrough: [
 - [ ] **Discover facets.** Confirm 60-range date facet + term facets + `-ts` sort + message highlighting on Server 8.0.
 - [ ] **Node.js SDK in the image.** Confirm the prebuilt binary loads in the Next.js standalone image.
 - [ ] **Search lag.** A started scenario should appear on Discover within one 5-second refresh.
-- [ ] **Scope of claims.** A single Couchbase pod shows the pattern, not production performance. Say so in the demo script.
+- [ ] **Scope of claims.** Three Couchbase pods show the pattern, not production performance. Say so in the demo script.
 - [ ] **Cost.** Nodes, disks, load balancers and reserved IPs bill while they exist.
 
 Open question: should Elasticsearch and Kibana also run for a side-by-side comparison? That adds roughly 4 Gi of memory and a second Logstash output. Out of scope unless explicitly requested.

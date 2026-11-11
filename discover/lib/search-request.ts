@@ -6,7 +6,10 @@ import {
   SearchRequest,
 } from "./cb-sdk";
 import { getCouchbase, searchIndexName } from "./couchbase";
+import { DEFAULT_SORT, parseSort } from "./fields";
 import { buildHistogramBuckets, toIso } from "./time";
+
+export { parseSort, DEFAULT_SORT } from "./fields";
 
 export const FILTER_FIELDS = [
   "service",
@@ -37,6 +40,8 @@ export type SearchParams = {
   filters: SearchFilter[];
   skip: number;
   limit: number;
+  /** Couchbase Search sort token, e.g. `-ts` or `service`. */
+  sort: string;
 };
 
 export type FacetBucket = { key: string; count: number };
@@ -286,12 +291,13 @@ export async function runSearch(params: SearchParams): Promise<SearchResponse> {
   const facets = buildFacets(histogramDefs);
   const searchReq = SearchRequest.create(query);
 
+  const sort = params.sort || DEFAULT_SORT;
   const requestJson = {
     index,
     query: (query as { toJSON?: () => unknown }).toJSON?.() ?? query,
     size: params.limit,
     from: params.skip,
-    sort: ["-ts"],
+    sort: [sort],
     highlight: { style: "html", fields: ["message"] },
     facets: Object.fromEntries(
       Object.entries(facets).map(([k, v]) => [
@@ -307,7 +313,7 @@ export async function runSearch(params: SearchParams): Promise<SearchResponse> {
     result = await eventsScope.search(index, searchReq, {
       limit: params.limit,
       skip: params.skip,
-      sort: ["-ts"],
+      sort: [sort],
       highlight: {
         style: HighlightStyle.HTML,
         fields: ["message"],
